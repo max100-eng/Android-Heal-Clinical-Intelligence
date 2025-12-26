@@ -1,0 +1,14 @@
+{
+  "name": "Android Heal: Clinical Intelligence",
+  "description": "Native-ready AI diagnostic platform for medical image interpretation.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "androidPermissions": [
+    "android.permission.CAMERA",
+    "android.permission.READ_EXTERNAL_STORAGE",
+    "android.permission.WRITE_EXTERNAL_STORAGE",
+    "android.permission.USE_BIOMETRIC"
+  ]
+}

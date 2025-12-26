@@ -1,0 +1,47 @@
+# Dependencias
+node_modules/
+.pnp
+.pnp.js
+
+# Producción / Builds
+dist/
+dist-ssr/
+build/
+out/
+
+# Variables de Entorno (CRÍTICO para seguridad)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor (VS Code, IntelliJ, etc.)
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# TypeScript y Cache
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+
+# Capacitor (Si usas compilación móvil)
+/android/
+/ios/
+/www/

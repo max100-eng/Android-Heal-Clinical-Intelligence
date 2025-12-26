@@ -1,0 +1,79 @@
+
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <title>Android Heal | Inteligencia Clínica AI</title>
+    <meta name="theme-color" content="#005f73" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/manifest.json" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'brand-primary': '#005f73',
+              'brand-secondary': '#0a9396',
+              'brand-accent': '#94d2bd',
+              'brand-light': '#e9d8a6',
+              'brand-dark': '#001219',
+            },
+            animation: {
+              'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'scan': 'scan 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'fade-in': 'fadeIn 0.5s ease-in-out',
+            },
+            keyframes: {
+              scan: {
+                '0%': { top: '-10%' },
+                '100%': { top: '110%' },
+              },
+              fadeIn: {
+                'from': { opacity: '0' },
+                'to': { opacity: '1' },
+              },
+              loading: {
+                '0%': { transform: 'translateX(-100%)' },
+                '100%': { transform: 'translateX(300%)' }
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* Estilos para soportar Safe Areas en Android Nativo/iOS */
+      body {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+        background-color: #001219;
+        -webkit-tap-highlight-color: transparent;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-markdown": "https://aistudiocdn.com/react-markdown@^10.1.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "vite": "https://aistudiocdn.com/vite@^7.2.6",
+    "ai": "https://aistudiocdn.com/ai@^5.0.107",
+    "@ai-sdk/google": "https://aistudiocdn.com/@ai-sdk/google@^2.0.44",
+    "@capacitor/cli": "https://esm.sh/@capacitor/cli@^8.0.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-slate-100 dark:bg-brand-dark overflow-x-hidden">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

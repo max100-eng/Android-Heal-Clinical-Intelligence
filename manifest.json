@@ -1,0 +1,25 @@
+
+{
+  "short_name": "Android Heal",
+  "name": "Android Heal: Clinical AI",
+  "description": "An AI-powered tool to interpret various clinical images like ECGs, radiological scans, retina images, and dermatoscopy photos.",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#005f73",
+  "background_color": "#001219"
+}
