@@ -45,3 +45,5 @@ pnpm-debug.log*
 /android/
 /ios/
 /www/
+.vercel
+.env*.local

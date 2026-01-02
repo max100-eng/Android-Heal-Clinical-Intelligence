@@ -1,7 +1,5 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { ImageType, AnalysisResult } from './types';
-import { analyzeImage } from './services/geminiService';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 import Header from './components/Header';
@@ -39,7 +37,6 @@ const ClinicalApp: React.FC = () => {
   const [isNative, setIsNative] = useState(false);
 
   useEffect(() => {
-    // Detectar si estamos en el bridge de Capacitor (Android/iOS Nativo)
     const isNativeEnv = (window as any).Capacitor?.isNative || false;
     setIsNative(isNativeEnv);
 
@@ -127,6 +124,7 @@ const ClinicalApp: React.FC = () => {
     setError('');
   }, []);
 
+  // --- FUNCIÓN ACTUALIZADA PARA CONECTAR CON /API/GEMINI ---
   const handleAnalyzeClick = useCallback(async () => {
     if (!imageData) {
       setError('Por favor, selecciona una imagen clínica primero.');
@@ -134,11 +132,31 @@ const ClinicalApp: React.FC = () => {
     }
     setLoading(true);
     setError('');
+    
     try {
-      const result = await analyzeImage(imageData.base64, imageData.mimeType, selectedType);
-      setAnalysisResult(result);
+      // Llamada segura a la Serverless Function de Vercel
+      const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: imageData.base64,
+          mimeType: imageData.mimeType,
+          type: selectedType
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error en la respuesta del motor clínico.');
+      }
+
+      const data = await response.json();
+      // 'data.text' es lo que devuelve el backend en gemini.js
+      setAnalysisResult(data.text); 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error inesperado en el motor clínico.');
+      setError(err instanceof Error ? err.message : 'Error inesperado en el servidor.');
     } finally {
       setLoading(false);
     }
