@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     const { image, mimeType, type } = req.body;
 
     // 2. Validar que la API KEY existe en Vercel
-    const apiKey = process.env.VITE_GEMINI_API_KEY;
+    const apiKey = process.env.API_KEY;
     if (!apiKey) {
       throw new Error("Configuración del servidor incompleta (API KEY missing)");
     }
