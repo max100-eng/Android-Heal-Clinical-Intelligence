@@ -1,31 +1,35 @@
-# Dependencias
-node_modules/
-.pnp
-.pnp.js
-
-# Producción / Builds
-dist/
-dist-ssr/
-build/
-out/
-
-# Variables de Entorno (CRÍTICO para seguridad)
+# --- SEGURIDAD Y VARIABLES DE ENTORNO (VITAL) ---
+# Nunca subas tus llaves API a GitHub
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 *.env
+.vercel
 
-# Logs
+# --- DEPENDENCIAS ---
+# No es necesario subirlas, se instalan con 'npm install'
+node_modules/
+/dist
+/dist-ssr
+/build
+/out
+.pnp
+.pnp.js
+
+# --- LOGS Y CACHÉ ---
 logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+.eslintcache
+.stylelintcache
+.tsbuildinfo
 
-# Editor (VS Code, IntelliJ, etc.)
+# --- CONFIGURACIÓN DE EDITOR ---
 .vscode/*
 !.vscode/extensions.json
 .idea/
@@ -36,14 +40,8 @@ pnpm-debug.log*
 *.sln
 *.sw?
 
-# TypeScript y Cache
-*.tsbuildinfo
-.eslintcache
-.stylelintcache
-
-# Capacitor (Si usas compilación móvil)
+# --- MÓVIL (CAPACITOR / ANDROID / IOS) ---
+# Si compilas para móvil, estos archivos se generan localmente
 /android/
 /ios/
 /www/
-.vercel
-.env*.local
