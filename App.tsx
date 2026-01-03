@@ -1,77 +1,66 @@
 import React from 'react';
 
-function App() {
+export default function App() {
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center bg-[#050505] overflow-hidden font-sans selection:bg-gemini-blue/30">
+    <div className="relative min-h-screen w-full flex items-center justify-center bg-[#08090a] overflow-hidden selection:bg-blue-500/30">
       
-      {/* CAPA DE LUCES AMBIENTALES (ESTILO AURORA) */}
+      {/* AURORA BACKGROUND EFFECT */}
       <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[-15%] left-[-5%] w-[60%] h-[60%] bg-blue-600/10 blur-[130px] rounded-full animate-pulse" />
-        <div className="absolute bottom-[-10%] right-[-5%] w-[50%] h-[50%] bg-purple-600/10 blur-[120px] rounded-full" />
+        <div className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] bg-[#4285f4]/10 blur-[120px] rounded-full animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#9b72cb]/10 blur-[120px] rounded-full" />
       </div>
 
-      {/* CONTENEDOR PRINCIPAL */}
-      <main className="relative z-10 w-full max-w-xl px-6">
-        
-        {/* BORDE BRILLANTE SUTIL ALREDEDOR DE LA TARJETA */}
-        <div className="relative p-[1px] rounded-[38px] bg-gradient-to-b from-white/15 to-transparent shadow-2xl">
+      <main className="relative z-10 w-full max-w-lg px-6">
+        {/* GLASS CARD CONTENIDO */}
+        <div className="backdrop-blur-3xl bg-[#121315]/80 border border-white/10 rounded-[40px] p-10 md:p-14 shadow-2xl overflow-hidden relative group">
           
-          {/* TARJETA CON EFECTO CRISTAL */}
-          <div className="backdrop-blur-3xl bg-[#0d0d0d]/80 rounded-[37px] p-10 md:p-14 border border-white/5">
-            
-            {/* CABECERA: TÍTULO CON GRADIENTE GEMINI */}
-            <div className="text-center mb-10">
-              <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-3">
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#4285F4] via-[#9B72CB] to-[#D96570] animate-gradient-slow">
-                  Gemini Studio
-                </span>
-              </h1>
-              <p className="text-gray-500 text-sm font-medium tracking-wide uppercase">
-                Clinical Intelligence Portal
-              </p>
-            </div>
+          {/* Sutil brillo superior */}
+          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
-            {/* FORMULARIO / INTERFAZ */}
-            <div className="space-y-5">
-              <div className="group relative">
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-2xl blur opacity-0 group-focus-within:opacity-100 transition duration-500"></div>
-                <input 
-                  type="text" 
-                  placeholder="Introduce tu ID de acceso..."
-                  className="relative w-full bg-[#161616] border border-white/10 rounded-2xl py-4 px-6 text-white placeholder:text-gray-600 outline-none focus:border-blue-500/50 transition-all shadow-inner"
-                />
-              </div>
-
-              <button className="w-full py-4 bg-white text-black font-bold rounded-2xl hover:bg-[#e5e5e5] transition-all transform active:scale-[0.98] shadow-[0_0_25px_rgba(255,255,255,0.1)]">
-                Acceder al Panel
-              </button>
-            </div>
-
-            {/* DECORACIÓN INFERIOR (PUNTOS DE ESTADO) */}
-            <div className="mt-10 flex justify-center items-center gap-3">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping"></span>
-              <span className="text-[10px] text-gray-600 font-bold uppercase tracking-[0.2em]">
-                Sistema En Línea
+          <div className="text-center mb-10">
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#4285f4] via-[#9b72cb] to-[#d96570] animate-gradient-x">
+                Gemini Studio
               </span>
+            </h1>
+            <p className="text-gray-400 text-xs font-bold uppercase tracking-[0.4em] opacity-70">
+              Clinical Intelligence
+            </p>
+          </div>
+
+          <div className="space-y-6">
+            <div className="relative">
+              <input 
+                type="text" 
+                placeholder="ID de acceso profesional..."
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all"
+              />
             </div>
+
+            <button className="w-full py-4 bg-white text-black font-bold rounded-2xl hover:bg-gray-200 transition-all active:scale-[0.98] shadow-xl">
+              Iniciar Sesión
+            </button>
+          </div>
+
+          <div className="mt-12 flex justify-center gap-2">
+            <div className="w-1 h-1 rounded-full bg-blue-500/50"></div>
+            <div className="w-1 h-1 rounded-full bg-purple-500/50"></div>
+            <div className="w-1 h-1 rounded-full bg-red-500/50"></div>
           </div>
         </div>
       </main>
 
-      {/* ESTILOS CSS PARA ANIMACIONES */}
       <style>{`
-        @keyframes gradient-slow {
+        @keyframes gradient-x {
           0% { background-position: 0% 50%; }
           50% { background-position: 100% 50%; }
           100% { background-position: 0% 50%; }
         }
-        .animate-gradient-slow {
-          background-size: 200% 200%;
-          animation: gradient-slow 6s ease infinite;
+        .animate-gradient-x {
+          background-size: 200% auto;
+          animation: gradient-x 8s ease infinite;
         }
       `}</style>
     </div>
   );
 }
-
-export default App;
