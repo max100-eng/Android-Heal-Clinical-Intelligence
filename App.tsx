@@ -1,66 +1,87 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 export default function App() {
-  return (
-    <div className="relative min-h-screen w-full flex items-center justify-center bg-[#08090a] overflow-hidden selection:bg-blue-500/30">
-      
-      {/* AURORA BACKGROUND EFFECT */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] bg-[#4285f4]/10 blur-[120px] rounded-full animate-pulse" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#9b72cb]/10 blur-[120px] rounded-full" />
-      </div>
+  const [password, setPassword] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [error, setError] = useState(false);
 
-      <main className="relative z-10 w-full max-w-lg px-6">
-        {/* GLASS CARD CONTENIDO */}
-        <div className="backdrop-blur-3xl bg-[#121315]/80 border border-white/10 rounded-[40px] p-10 md:p-14 shadow-2xl overflow-hidden relative group">
-          
-          {/* Sutil brillo superior */}
-          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+  // DEFINE AQUÍ TU CONTRASEÑA
+  const ACCESS_PASSWORD = "gemini2026"; 
 
-          <div className="text-center mb-10">
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#4285f4] via-[#9b72cb] to-[#d96570] animate-gradient-x">
-                Gemini Studio
-              </span>
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password === ACCESS_PASSWORD) {
+      setIsAuthenticated(true);
+      setError(false);
+    } else {
+      setError(true);
+      setPassword('');
+    }
+  };
+
+  // 1. PANTALLA DE BLOQUEO (Si no está autenticado)
+  if (!isAuthenticated) {
+    return (
+      <div className="relative min-h-screen w-full flex items-center justify-center bg-[#050505] overflow-hidden font-sans">
+        <div className="absolute inset-0 z-0">
+          <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-600/10 blur-[120px] rounded-full animate-pulse" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-purple-600/10 blur-[120px] rounded-full" />
+        </div>
+
+        <main className="relative z-10 w-full max-w-md px-6 text-center">
+          <div className="backdrop-blur-3xl bg-white/[0.02] border border-white/10 rounded-[40px] p-12 shadow-2xl">
+            <h1 className="text-4xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-[#4285F4] via-[#9B72CB] to-[#D96570]">
+              Gemini Studio
             </h1>
-            <p className="text-gray-400 text-xs font-bold uppercase tracking-[0.4em] opacity-70">
-              Clinical Intelligence
-            </p>
-          </div>
-
-          <div className="space-y-6">
-            <div className="relative">
+            <p className="text-gray-500 text-sm mb-10 tracking-widest uppercase">Acceso Protegido</p>
+            
+            <form onSubmit={handleLogin} className="space-y-4">
               <input 
-                type="text" 
-                placeholder="ID de acceso profesional..."
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all"
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Introduce la contraseña"
+                className={`w-full bg-white/5 border ${error ? 'border-red-500' : 'border-white/10'} rounded-2xl py-4 px-6 text-white outline-none focus:border-blue-500/50 transition-all`}
               />
-            </div>
-
-            <button className="w-full py-4 bg-white text-black font-bold rounded-2xl hover:bg-gray-200 transition-all active:scale-[0.98] shadow-xl">
-              Iniciar Sesión
-            </button>
+              {error && <p className="text-red-500 text-xs">Contraseña incorrecta. Inténtalo de nuevo.</p>}
+              <button 
+                type="submit"
+                className="w-full py-4 bg-white text-black font-bold rounded-2xl hover:scale-[1.02] transition-transform shadow-lg"
+              >
+                Desbloquear Panel
+              </button>
+            </form>
           </div>
+        </main>
+      </div>
+    );
+  }
 
-          <div className="mt-12 flex justify-center gap-2">
-            <div className="w-1 h-1 rounded-full bg-blue-500/50"></div>
-            <div className="w-1 h-1 rounded-full bg-purple-500/50"></div>
-            <div className="w-1 h-1 rounded-full bg-red-500/50"></div>
-          </div>
+  // 2. PANEL PRINCIPAL (Si la contraseña es correcta)
+  return (
+    <div className="min-h-screen bg-[#08090a] text-white p-10 font-sans">
+      <nav className="flex justify-between items-center mb-10">
+        <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#4285F4] via-[#9B72CB] to-[#D96570]">
+          Gemini Studio
+        </h2>
+        <button 
+          onClick={() => setIsAuthenticated(false)}
+          className="text-xs text-gray-500 hover:text-white transition-colors uppercase tracking-widest"
+        >
+          Cerrar Sesión
+        </button>
+      </nav>
+
+      <main className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="p-8 rounded-3xl bg-white/5 border border-white/10">
+          <h3 className="text-lg font-semibold mb-4 text-blue-400">Análisis Clínico</h3>
+          <p className="text-gray-400 text-sm">El sistema de inteligencia está listo para procesar datos médicos.</p>
+        </div>
+        <div className="p-8 rounded-3xl bg-white/5 border border-white/10">
+          <h3 className="text-lg font-semibold mb-4 text-purple-400">Estado del Sistema</h3>
+          <p className="text-gray-400 text-sm">Conexión encriptada y segura activa.</p>
         </div>
       </main>
-
-      <style>{`
-        @keyframes gradient-x {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-        .animate-gradient-x {
-          background-size: 200% auto;
-          animation: gradient-x 8s ease infinite;
-        }
-      `}</style>
     </div>
   );
 }
