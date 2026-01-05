@@ -1,7 +1,21 @@
 
 import React from 'react';
 import { ImageType } from '../types';
-import { HeartPulseIcon, LungIcon, EyeIcon, SkinIcon, BeakerIcon, FlaskIcon, ScanIcon, WavesIcon, RadioactiveIcon, ActivityIcon } from './icons/Icons';
+import { 
+  HeartPulseIcon, 
+  LungIcon, 
+  EyeIcon, 
+  SkinIcon, 
+  BeakerIcon, 
+  ScanIcon, 
+  WavesIcon, 
+  ActivityIcon,
+  WindIcon,
+  ZapIcon,
+  BrainIcon,
+  ClockIcon,
+  TargetIcon
+} from './icons/Icons';
 
 interface ImageTypeSelectorProps {
   selectedType: ImageType;
@@ -10,54 +24,56 @@ interface ImageTypeSelectorProps {
 
 const imageTypes = [
   { type: ImageType.ECG, label: 'ECG', icon: HeartPulseIcon },
-  { type: ImageType.RX, label: 'Rayos X (RX)', icon: LungIcon },
-  { type: ImageType.TC, label: 'Tomografía (TC)', icon: ScanIcon },
-  { type: ImageType.RMN, label: 'Resonancia (RMN)', icon: ActivityIcon },
-  { type: ImageType.ECO, label: 'Ecografía (ECO)', icon: WavesIcon },
+  { type: ImageType.RX, label: 'Rayos X', icon: LungIcon },
+  { type: ImageType.TC, label: 'TC Scan', icon: ScanIcon },
+  { type: ImageType.RMN, label: 'Resonancia', icon: ActivityIcon },
+  { type: ImageType.ECO, label: 'Ecografía', icon: WavesIcon },
   { type: ImageType.RETINA, label: 'Retina', icon: EyeIcon },
-  { type: ImageType.DERMATOSCOPY, label: 'Dermatoscopia', icon: SkinIcon },
-  { type: ImageType.URINALYSIS, label: 'Urianálisis', icon: BeakerIcon },
-  { type: ImageType.TOXICOLOGY, label: 'Toxicología', icon: FlaskIcon },
-  { type: ImageType.NUCLEAR_MEDICINE, label: 'Med. Nuclear', icon: RadioactiveIcon },
+  { type: ImageType.DERMATOSCOPY, label: 'Derma', icon: SkinIcon },
+  { type: ImageType.URINALYSIS, label: 'Orina', icon: BeakerIcon },
+  { type: ImageType.TOXICOLOGY, label: 'Tóxico', icon: BeakerIcon },
+  { type: ImageType.NUCLEAR_MEDICINE, label: 'Nuclear', icon: TargetIcon },
+  { type: ImageType.EMG, label: 'EMG', icon: ZapIcon },
+  { type: ImageType.SPIROMETRY, label: 'Espiro', icon: WindIcon },
+  { type: ImageType.EEG, label: 'EEG', icon: BrainIcon },
+  { type: ImageType.HOLTER, label: 'Holter', icon: ClockIcon },
 ];
-
-const ImageTypeButton: React.FC<{
-    type: ImageType;
-    label: string;
-    icon: React.ElementType;
-    isSelected: boolean;
-    onClick: (type: ImageType) => void;
-}> = ({ type, label, icon: Icon, isSelected, onClick }) => {
-    return (
-        <button
-            onClick={() => onClick(type)}
-            className={`flex flex-col items-center justify-center p-4 border-2 rounded-2xl cursor-pointer transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-brand-secondary/20 ${
-                isSelected 
-                ? "bg-brand-primary border-brand-primary text-white shadow-xl scale-105 z-10" 
-                : "bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-brand-secondary/50 hover:bg-brand-secondary/5"
-            }`}
-        >
-            <div className={`p-2 rounded-xl mb-2 transition-colors ${isSelected ? "bg-white/20" : "bg-gray-50 dark:bg-gray-700"}`}>
-                <Icon className={`h-6 w-6 ${isSelected ? "text-white" : "text-brand-secondary"}`} />
-            </div>
-            <span className="font-black text-[10px] uppercase tracking-tighter text-center leading-tight">{label}</span>
-        </button>
-    );
-};
 
 const ImageTypeSelector: React.FC<ImageTypeSelectorProps> = ({ selectedType, onTypeChange }) => {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-      {imageTypes.map(({ type, label, icon }) => (
-        <ImageTypeButton
+    <div className="grid grid-cols-3 gap-3 w-full max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+      {imageTypes.map(({ type, label, icon: Icon }) => {
+        const isSelected = selectedType === type;
+        return (
+          <button
             key={type}
-            type={type}
-            label={label}
-            icon={icon}
-            isSelected={selectedType === type}
-            onClick={onTypeChange}
-        />
-      ))}
+            onClick={() => onTypeChange(type)}
+            className={`flex flex-col items-center justify-center py-5 px-2 rounded-3xl border-2 transition-all duration-300 transform active:scale-90 ${
+              isSelected 
+              ? "bg-brand-secondary/20 border-brand-secondary shadow-[0_0_20px_rgba(14,165,233,0.3)] text-white" 
+              : "bg-white/5 border-white/5 text-gray-500 hover:border-white/10"
+            }`}
+          >
+            <div className={`p-3 rounded-2xl mb-2 transition-colors ${isSelected ? 'bg-brand-secondary text-white shadow-lg' : 'bg-white/5'}`}>
+               <Icon className="h-5 w-5" />
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-tighter text-center leading-none">{label}</span>
+          </button>
+        );
+      })}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(14, 165, 233, 0.3);
+          border-radius: 10px;
+        }
+      `}</style>
     </div>
   );
 };

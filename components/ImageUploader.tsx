@@ -1,5 +1,17 @@
-import React, { useRef, useState, useEffect, WheelEvent, MouseEvent } from 'react';
-import { UploadCloudIcon, XCircleIcon, CameraIcon, FileUpIcon, ZoomInIcon, ZoomOutIcon, RefreshCwIcon, TargetIcon, SquareIcon, EraserIcon } from './icons/Icons';
+
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { 
+  UploadCloudIcon, 
+  XCircleIcon, 
+  CameraIcon, 
+  FileUpIcon, 
+  ZoomInIcon, 
+  ZoomOutIcon, 
+  RefreshCwIcon, 
+  TargetIcon, 
+  SquareIcon, 
+  EraserIcon 
+} from './icons/Icons';
 
 interface ImageUploaderProps {
   onImageUpload: (file: File, isAnnotation?: boolean) => void;
@@ -10,116 +22,217 @@ interface ImageUploaderProps {
 type Tool = 'none' | 'arrow' | 'box';
 
 interface Coordinate {
-    x: number;
-    y: number;
+  x: number;
+  y: number;
 }
 
 const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload, previewUrl, onClear }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  
-  const [scale, setScale] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [isPanning, setIsPanning] = useState(false);
-  const panStartRef = useRef({ x: 0, y: 0 });
+  const stageRef = useRef<HTMLDivElement>(null);
 
+  // Viewport state
+  const [transform, setTransform] = useState({ scale: 1, x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
   const [activeTool, setActiveTool] = useState<Tool>('none');
-  const [originalFile, setOriginalFile] = useState<File | null>(null);
   const [hasAnnotations, setHasAnnotations] = useState(false);
-  
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
+
+  // Drawing state
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawStart, setDrawStart] = useState<Coordinate | null>(null);
   const [drawEnd, setDrawEnd] = useState<Coordinate | null>(null);
-  const [previewCoords, setPreviewCoords] = useState<{start: Coordinate, end: Coordinate} | null>(null);
+  const [previewCoords, setPreviewCoords] = useState<{ start: Coordinate; end: Coordinate } | null>(null);
+
+  // Touch handling
+  const touchState = useRef({ lastDist: 0, lastPoint: { x: 0, y: 0 } });
+
+  const resetViewport = useCallback(() => {
+    setTransform({ scale: 1, x: 0, y: 0 });
+  }, []);
 
   useEffect(() => {
     if (!previewUrl) {
-      resetZoom();
+      resetViewport();
       setActiveTool('none');
       setHasAnnotations(false);
       setOriginalFile(null);
-      setIsDrawing(false);
-      setPreviewCoords(null);
     }
-  }, [previewUrl]);
+  }, [previewUrl, resetViewport]);
 
-  const updateScale = (newScale: number) => {
-    const clampedScale = Math.max(1, Math.min(newScale, 8));
-    setScale(clampedScale);
-    if (clampedScale === 1) setPan({ x: 0, y: 0 });
+  const handleZoom = (delta: number, clientX: number, clientY: number) => {
+    if (!containerRef.current || !previewUrl) return;
+
+    setTransform((prev) => {
+      const scaleSpeed = 0.002;
+      const newScale = Math.min(Math.max(prev.scale - delta * scaleSpeed * prev.scale, 0.5), 20);
+      
+      const rect = containerRef.current!.getBoundingClientRect();
+      const mouseX = clientX - rect.left;
+      const mouseY = clientY - rect.top;
+
+      // Calculate how much the mouse position moved in terms of image coordinates
+      const dx = (mouseX - prev.x) / prev.scale;
+      const dy = (mouseY - prev.y) / prev.scale;
+
+      return {
+        scale: newScale,
+        x: mouseX - dx * newScale,
+        y: mouseY - dy * newScale,
+      };
+    });
   };
 
-  const handleWheel = (e: WheelEvent<HTMLDivElement>) => {
-    if (activeTool !== 'none' || !previewUrl) return;
+  const handleWheel = (e: React.WheelEvent) => {
+    if (activeTool !== 'none') return;
     e.preventDefault();
-    updateScale(scale - e.deltaY * 0.005);
+    handleZoom(e.deltaY, e.clientX, e.clientY);
   };
-
-  const clamp = (val: number, min: number, max: number) => Math.min(Math.max(val, min), max);
 
   const getNaturalCoords = (clientX: number, clientY: number): Coordinate | null => {
-      if (!imageRef.current) return null;
-      const rect = imageRef.current.getBoundingClientRect();
-      const x = clamp(clientX - rect.left, 0, rect.width);
-      const y = clamp(clientY - rect.top, 0, rect.height);
-      const normX = x / rect.width;
-      const normY = y / rect.height;
-      return { 
-          x: normX * imageRef.current.naturalWidth, 
-          y: normY * imageRef.current.naturalHeight 
-      };
+    if (!imageRef.current) return null;
+    const rect = imageRef.current.getBoundingClientRect();
+    const x = Math.min(Math.max(clientX - rect.left, 0), rect.width);
+    const y = Math.min(Math.max(clientY - rect.top, 0), rect.height);
+    
+    return {
+      x: (x / rect.width) * imageRef.current.naturalWidth,
+      y: (y / rect.height) * imageRef.current.naturalHeight,
+    };
   };
 
   const getPercentCoords = (clientX: number, clientY: number): Coordinate | null => {
     if (!imageRef.current) return null;
     const rect = imageRef.current.getBoundingClientRect();
-    const x = clamp(((clientX - rect.left) / rect.width) * 100, 0, 100);
-    const y = clamp(((clientY - rect.top) / rect.height) * 100, 0, 100);
-    return { x, y };
+    return {
+      x: ((clientX - rect.left) / rect.width) * 100,
+      y: ((clientY - rect.top) / rect.height) * 100,
+    };
   };
 
-  const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+  const handleMouseDown = (e: React.MouseEvent) => {
     if (!previewUrl || (e.target as HTMLElement).closest('button')) return;
-    e.preventDefault();
+
     if (activeTool !== 'none') {
-        const natural = getNaturalCoords(e.clientX, e.clientY);
-        const percent = getPercentCoords(e.clientX, e.clientY);
-        if (natural && percent) {
-            setIsDrawing(true);
-            setDrawStart(natural);
-            setDrawEnd(natural);
-            setPreviewCoords({ start: percent, end: percent });
-        }
-    } else if (scale > 1) {
-        setIsPanning(true);
-        panStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+      const natural = getNaturalCoords(e.clientX, e.clientY);
+      const percent = getPercentCoords(e.clientX, e.clientY);
+      if (natural && percent) {
+        setIsDrawing(true);
+        setDrawStart(natural);
+        setDrawEnd(natural);
+        setPreviewCoords({ start: percent, end: percent });
+      }
+    } else {
+      setIsPanning(true);
     }
   };
 
-  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+  const handleMouseMove = (e: React.MouseEvent) => {
     if (isDrawing && activeTool !== 'none') {
-        const natural = getNaturalCoords(e.clientX, e.clientY);
-        const percent = getPercentCoords(e.clientX, e.clientY);
-        if (natural && percent && previewCoords) {
-            setDrawEnd(natural);
-            setPreviewCoords({ ...previewCoords, end: percent });
-        }
+      const natural = getNaturalCoords(e.clientX, e.clientY);
+      const percent = getPercentCoords(e.clientX, e.clientY);
+      if (natural && percent && previewCoords) {
+        setDrawEnd(natural);
+        setPreviewCoords({ ...previewCoords, end: percent });
+      }
     } else if (isPanning) {
-        setPan({ x: e.clientX - panStartRef.current.x, y: e.clientY - panStartRef.current.y });
+      setTransform((prev) => ({
+        ...prev,
+        x: prev.x + e.movementX,
+        y: prev.y + e.movementY,
+      }));
     }
   };
 
-  const handleMouseUpOrLeave = () => {
-    if (isDrawing && drawStart && drawEnd) burnAnnotation(drawStart, drawEnd);
-    setIsDrawing(false);
-    setDrawStart(null);
-    setDrawEnd(null);
-    setPreviewCoords(null);
-    setIsPanning(false);
+  const burnAnnotation = (start: Coordinate, end: Coordinate) => {
+    if (!imageRef.current || !originalFile) return;
+    const dist = Math.hypot(end.x - start.x, end.y - start.y);
+    if (dist < 5) return;
+
+    const img = imageRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.drawImage(img, 0, 0);
+    ctx.strokeStyle = '#ef4444';
+    ctx.fillStyle = '#ef4444';
+    const lineWidth = Math.max(4, Math.min(img.naturalWidth, img.naturalHeight) * 0.008);
+    ctx.lineWidth = lineWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    if (activeTool === 'box') {
+      const x = Math.min(start.x, end.x);
+      const y = Math.min(start.y, end.y);
+      const w = Math.abs(end.x - start.x);
+      const h = Math.abs(end.y - start.y);
+      ctx.strokeRect(x, y, w, h);
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.15)';
+      ctx.fillRect(x, y, w, h);
+    } else if (activeTool === 'arrow') {
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      const headLen = lineWidth * 6;
+      const angle = Math.atan2(dy, dx);
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(end.x, end.y);
+      ctx.lineTo(end.x - headLen * Math.cos(angle - Math.PI / 6), end.y - headLen * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(end.x - headLen * Math.cos(angle + Math.PI / 6), end.y - headLen * Math.sin(angle + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const newFile = new File([blob], originalFile.name, { type: originalFile.type });
+        onImageUpload(newFile, true);
+        setHasAnnotations(true);
+      }
+    }, originalFile.type || 'image/png', 0.95);
   };
 
-  const resetZoom = () => { setScale(1); setPan({ x: 0, y: 0 }); };
+  const handleMouseUp = () => {
+    if (isDrawing && drawStart && drawEnd) {
+      burnAnnotation(drawStart, drawEnd);
+    }
+    setIsDrawing(false);
+    setIsPanning(false);
+    setPreviewCoords(null);
+  };
+
+  // Touch Support
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      touchState.current.lastDist = d;
+    } else if (e.touches.length === 1) {
+      touchState.current.lastPoint = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      const delta = (touchState.current.lastDist - d) * 2;
+      handleZoom(delta, centerX, centerY);
+      touchState.current.lastDist = d;
+    } else if (e.touches.length === 1 && !isDrawing) {
+      const dx = e.touches[0].clientX - touchState.current.lastPoint.x;
+      const dy = e.touches[0].clientY - touchState.current.lastPoint.y;
+      setTransform(prev => ({ ...prev, x: prev.x + dx, y: prev.y + dy }));
+      touchState.current.lastPoint = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+  };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -127,150 +240,155 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload, previewUrl
       setOriginalFile(file);
       onImageUpload(file, false);
     }
-    if (event.target) event.target.value = '';
+    event.target.value = '';
   };
 
-  const triggerFileUpload = (e?: React.MouseEvent) => {
-    if (e) { e.preventDefault(); e.stopPropagation(); }
-    fileInputRef.current?.click();
-  };
-
-  const burnAnnotation = (start: Coordinate, end: Coordinate) => {
-    if (!imageRef.current || !originalFile) return;
-    const dist = Math.hypot(end.x - start.x, end.y - start.y);
-    if (dist < 5) return;
-    const img = imageRef.current;
-    const canvas = document.createElement('canvas');
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.drawImage(img, 0, 0);
-    ctx.save();
-    ctx.strokeStyle = '#ef4444';
-    ctx.fillStyle = '#ef4444';
-    const lineWidth = Math.max(4, Math.min(img.naturalWidth, img.naturalHeight) * 0.008);
-    ctx.lineWidth = lineWidth;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    
-    if (activeTool === 'box') {
-        const x = Math.min(start.x, end.x);
-        const y = Math.min(start.y, end.y);
-        const w = Math.abs(end.x - start.x);
-        const h = Math.abs(end.y - start.y);
-        ctx.strokeRect(x, y, w, h);
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.1)';
-        ctx.fillRect(x, y, w, h);
-    } else if (activeTool === 'arrow') {
-        const dx = end.x - start.x;
-        const dy = end.y - start.y;
-        const headLen = lineWidth * 5;
-        const angle = Math.atan2(dy, dx);
-        ctx.beginPath();
-        ctx.moveTo(start.x, start.y);
-        ctx.lineTo(end.x, end.y);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(end.x, end.y);
-        ctx.lineTo(end.x - headLen * Math.cos(angle - Math.PI / 6), end.y - headLen * Math.sin(angle - Math.PI / 6));
-        ctx.lineTo(end.x - headLen * Math.cos(angle + Math.PI / 6), end.y - headLen * Math.sin(angle + Math.PI / 6));
-        ctx.closePath();
-        ctx.fill();
-    }
-    ctx.restore();
-    
-    canvas.toBlob((blob) => {
-        if (blob) {
-            const newFile = new File([blob], originalFile.name, { type: originalFile.type });
-            onImageUpload(newFile, true);
-            setHasAnnotations(true);
-        }
-    }, originalFile.type || 'image/png');
-  };
-
-  const undoAnnotations = () => {
-    if (originalFile) {
-        onImageUpload(originalFile, false);
-        setHasAnnotations(false);
-        setActiveTool('none');
-    }
-  };
+  const triggerFileUpload = () => fileInputRef.current?.click();
 
   const toggleTool = (tool: Tool) => {
-      if (activeTool === tool) setActiveTool('none');
-      else { setActiveTool(tool); resetZoom(); }
+    setActiveTool((prev) => (prev === tool ? 'none' : tool));
+    if (activeTool === 'none') resetViewport();
   };
 
   return (
     <div className="w-full">
-      <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" accept="image/*" id="clinical-image-input" />
+      <input 
+        ref={fileInputRef} 
+        type="file" 
+        onChange={handleFileChange} 
+        className="hidden" 
+        accept="image/*" 
+      />
+      
       {previewUrl ? (
-        <div className="relative group w-full">
+        <div className="relative w-full aspect-video rounded-[2rem] overflow-hidden border-2 border-dashed border-brand-secondary/30 bg-white dark:bg-gray-800 shadow-inner group">
+          <div
+            ref={containerRef}
+            className={`absolute inset-0 touch-none flex items-center justify-center ${
+              activeTool !== 'none' ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'
+            }`}
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+          >
             <div
-                ref={containerRef}
-                className={`relative w-full aspect-video rounded-[2rem] overflow-hidden border-2 border-dashed border-brand-secondary/30 dark:border-gray-600 bg-white dark:bg-gray-800 touch-none flex items-center justify-center shadow-inner ${activeTool !== 'none' ? 'cursor-crosshair' : (scale > 1 ? 'cursor-move' : 'cursor-default')}`}
-                onWheel={handleWheel}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUpOrLeave}
-                onMouseLeave={handleMouseUpOrLeave}
+              ref={stageRef}
+              className="relative will-change-transform"
+              style={{
+                transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+                transition: isPanning || isDrawing ? 'none' : 'transform 0.1s ease-out'
+              }}
             >
-                <div className="relative transition-transform duration-75 ease-out origin-center max-w-full max-h-full flex items-center justify-center" style={{ transform: `scale(${scale}) translate(${pan.x}px, ${pan.y}px)` }}>
-                     <img ref={imageRef} src={previewUrl} alt="Vista previa clínica" className="block max-w-full max-h-full object-contain pointer-events-none select-none shadow-2xl rounded-lg" />
-                    {isDrawing && previewCoords && (
-                        <svg className="absolute inset-0 w-full h-full pointer-events-none z-50 overflow-visible">
-                            {activeTool === 'box' && (
-                                <rect x={`${Math.min(previewCoords.start.x, previewCoords.end.x)}%`} y={`${Math.min(previewCoords.start.y, previewCoords.end.y)}%`} width={`${Math.abs(previewCoords.end.x - previewCoords.start.x)}%`} height={`${Math.abs(previewCoords.end.y - previewCoords.start.y)}%`} fill="rgba(239, 68, 68, 0.2)" stroke="#ef4444" strokeWidth="3" />
-                            )}
-                            {activeTool === 'arrow' && (
-                                <g>
-                                    <line x1={`${previewCoords.start.x}%`} y1={`${previewCoords.start.y}%`} x2={`${previewCoords.end.x}%`} y2={`${previewCoords.end.y}%`} stroke="#ef4444" strokeWidth="3" />
-                                    <circle cx={`${previewCoords.end.x}%`} cy={`${previewCoords.end.y}%`} r="5" fill="#ef4444" />
-                                </g>
-                            )}
-                        </svg>
-                    )}
-                </div>
-                <div className={`absolute inset-0 pointer-events-none flex items-center justify-center ${isDrawing || isPanning || activeTool !== 'none' ? 'hidden' : ''}`}>
-                    <div className="bg-black/0 hover:bg-black/60 transition-all absolute inset-0 pointer-events-auto flex flex-col items-center justify-center opacity-0 hover:opacity-100 backdrop-blur-sm">
-                        <button onClick={triggerFileUpload} className="bg-white text-brand-primary px-8 py-3 rounded-2xl font-black text-sm shadow-2xl transform hover:scale-110 transition-all uppercase tracking-widest active:scale-95 mb-4">Cambiar Imagen</button>
-                    </div>
-                </div>
-                <div className="absolute top-4 right-4 flex gap-3 pointer-events-auto z-30">
-                     <button onClick={e => { e.stopPropagation(); onClear(); }} className="p-2 bg-red-600/90 hover:bg-red-700 rounded-2xl text-white transition-all shadow-lg active:scale-90" title="Quitar imagen"><XCircleIcon className="h-6 w-6" /></button>
-                </div>
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex items-center gap-1 bg-gray-900/95 backdrop-blur-xl p-2 rounded-2xl z-20 pointer-events-auto shadow-2xl border border-white/10 ring-1 ring-white/5">
-                    <button onClick={() => toggleTool('box')} className={`p-2.5 rounded-xl transition-all ${activeTool === 'box' ? 'bg-brand-secondary text-white ring-2 ring-brand-light shadow-lg scale-110' : 'text-gray-400 hover:bg-white/10 hover:text-white'}`} title="Dibujar Recuadro"><SquareIcon className="h-5 w-5" /></button>
-                    <button onClick={() => toggleTool('arrow')} className={`p-2.5 rounded-xl transition-all ${activeTool === 'arrow' ? 'bg-brand-secondary text-white ring-2 ring-brand-light shadow-lg scale-110' : 'text-gray-400 hover:bg-white/10 hover:text-white'}`} title="Dibujar Flecha"><TargetIcon className="h-5 w-5" /></button>
-                    <div className="w-px h-8 bg-white/10 mx-1"></div>
-                    <button onClick={undoAnnotations} disabled={!hasAnnotations} className="p-2.5 text-gray-400 hover:bg-white/10 hover:text-red-400 rounded-xl transition-all disabled:opacity-20 disabled:grayscale" title="Borrar Anotaciones"><EraserIcon className="h-5 w-5" /></button>
-                    <div className="w-px h-8 bg-white/10 mx-1"></div>
-                    <button onClick={() => updateScale(scale + 0.5)} className="p-2.5 text-gray-400 hover:bg-white/10 hover:text-white rounded-xl transition-all"><ZoomInIcon className="h-5 w-5" /></button>
-                    <button onClick={() => updateScale(scale - 0.5)} className="p-2.5 text-gray-400 hover:bg-white/10 hover:text-white rounded-xl transition-all"><ZoomOutIcon className="h-5 w-5" /></button>
-                    <button onClick={resetZoom} className="p-2.5 text-gray-400 hover:bg-white/10 hover:text-brand-accent rounded-xl transition-all"><RefreshCwIcon className="h-5 w-5" /></button>
-                </div>
+              <img
+                ref={imageRef}
+                src={previewUrl}
+                alt="Clinical Preview"
+                className="max-w-none block object-contain select-none pointer-events-none"
+                style={{ height: '70vh' }}
+              />
+              
+              {isDrawing && previewCoords && (
+                <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
+                  {activeTool === 'box' && (
+                    <rect
+                      x={`${Math.min(previewCoords.start.x, previewCoords.end.x)}%`}
+                      y={`${Math.min(previewCoords.start.y, previewCoords.end.y)}%`}
+                      width={`${Math.abs(previewCoords.end.x - previewCoords.start.x)}%`}
+                      height={`${Math.abs(previewCoords.end.y - previewCoords.start.y)}%`}
+                      fill="rgba(239, 68, 68, 0.2)"
+                      stroke="#ef4444"
+                      strokeWidth="2"
+                    />
+                  )}
+                  {activeTool === 'arrow' && (
+                    <line
+                      x1={`${previewCoords.start.x}%`}
+                      y1={`${previewCoords.start.y}%`}
+                      x2={`${previewCoords.end.x}%`}
+                      y2={`${previewCoords.end.y}%`}
+                      stroke="#ef4444"
+                      strokeWidth="2"
+                    />
+                  )}
+                </svg>
+              )}
             </div>
+          </div>
+
+          {/* Overlay Controls */}
+          <div className="absolute top-4 right-4 flex gap-3 z-30 pointer-events-none">
+            <button 
+              onClick={onClear} 
+              className="p-3 bg-red-600/90 hover:bg-red-700 rounded-2xl text-white transition-all shadow-xl active:scale-90 pointer-events-auto"
+            >
+              <XCircleIcon className="h-6 w-6" />
+            </button>
+          </div>
+
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-gray-900/95 backdrop-blur-xl p-2 rounded-2xl z-30 shadow-2xl border border-white/10 ring-1 ring-white/5 pointer-events-auto">
+            <button 
+              onClick={() => toggleTool('box')} 
+              className={`p-3 rounded-xl transition-all ${activeTool === 'box' ? 'bg-brand-secondary text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+            >
+              <SquareIcon className="h-5 w-5" />
+            </button>
+            <button 
+              onClick={() => toggleTool('arrow')} 
+              className={`p-3 rounded-xl transition-all ${activeTool === 'arrow' ? 'bg-brand-secondary text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+            >
+              <TargetIcon className="h-5 w-5" />
+            </button>
+            <div className="w-px h-8 bg-white/10 mx-2" />
+            <button 
+              onClick={() => { setOriginalFile(null); onImageUpload(originalFile!, false); setHasAnnotations(false); }} 
+              disabled={!hasAnnotations} 
+              className="p-3 text-gray-400 hover:text-red-400 disabled:opacity-20"
+            >
+              <EraserIcon className="h-5 w-5" />
+            </button>
+            <div className="w-px h-8 bg-white/10 mx-2" />
+            <button onClick={() => setTransform(p => ({ ...p, scale: p.scale * 1.25 }))} className="p-3 text-gray-400 hover:text-white">
+              <ZoomInIcon className="h-5 w-5" />
+            </button>
+            <button onClick={() => setTransform(p => ({ ...p, scale: p.scale * 0.8 }))} className="p-3 text-gray-400 hover:text-white">
+              <ZoomOutIcon className="h-5 w-5" />
+            </button>
+            <button onClick={resetViewport} className="p-3 text-gray-400 hover:text-brand-accent">
+              <RefreshCwIcon className="h-5 w-5" />
+            </button>
+          </div>
+          
+          <div className="absolute bottom-6 left-6 pointer-events-none opacity-40">
+            <div className="px-3 py-1 bg-black/60 rounded-full text-[10px] font-black text-white uppercase tracking-widest border border-white/10">
+              {(transform.scale * 100).toFixed(0)}% Zoom
+            </div>
+          </div>
         </div>
       ) : (
-        <label htmlFor="clinical-image-input" className="group flex flex-col justify-center items-center w-full aspect-video px-10 py-16 border-4 border-dashed border-gray-200 dark:border-gray-700 rounded-[2.5rem] bg-white dark:bg-gray-800/50 hover:border-brand-secondary/50 hover:bg-brand-secondary/5 transition-all cursor-pointer shadow-inner relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          <div className="text-center relative z-10 pointer-events-none">
+        <div 
+          onClick={triggerFileUpload}
+          className="group flex flex-col justify-center items-center w-full aspect-video border-4 border-dashed border-gray-200 dark:border-gray-700 rounded-[2.5rem] bg-white dark:bg-gray-800/50 hover:border-brand-secondary/50 transition-all cursor-pointer shadow-inner relative overflow-hidden"
+        >
+          <div className="text-center relative z-10 p-10">
             <div className="p-6 bg-slate-50 dark:bg-gray-700/50 rounded-full inline-block mb-6 shadow-sm group-hover:scale-110 group-hover:bg-brand-secondary/10 transition-all duration-500">
                 <UploadCloudIcon className="h-14 w-14 text-gray-300 group-hover:text-brand-secondary transition-colors" />
             </div>
-            <h3 className="text-xl font-black text-gray-800 dark:text-gray-100 uppercase tracking-tight mb-2 leading-tight">Entrada de Imagen Clínica</h3>
-            <p className="text-xs text-gray-400 dark:text-gray-500 font-medium mb-8 max-w-[240px] mx-auto">Sube una captura diagnóstica para iniciar el análisis.</p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pointer-events-auto">
-                 <button type="button" onClick={triggerFileUpload} className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-brand-primary text-white rounded-2xl hover:bg-brand-secondary transition-all shadow-xl font-black text-sm uppercase tracking-widest active:scale-95">
-                    <FileUpIcon className="h-5 w-5" /> Subir Archivo
-                </button>
-                <button type="button" onClick={() => { if(fileInputRef.current) { fileInputRef.current.setAttribute('capture', 'environment'); fileInputRef.current.click(); } }} className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-2xl hover:border-brand-secondary/30 transition-all shadow-md font-black text-sm uppercase tracking-widest active:scale-95">
-                    <CameraIcon className="h-5 w-5" /> Cámara
-                </button>
+            <h3 className="text-xl font-black text-gray-800 dark:text-gray-100 uppercase tracking-tight mb-2">Entrada de Imagen Clínica</h3>
+            <p className="text-xs text-gray-400 dark:text-gray-500 font-medium mb-8 max-w-[240px] mx-auto">Sube una captura diagnóstica de alta resolución para interpretación.</p>
+            <div className="flex gap-4 items-center justify-center">
+                <div className="flex items-center justify-center gap-3 px-8 py-4 bg-brand-primary text-white rounded-2xl shadow-xl font-black text-sm uppercase tracking-widest">
+                  <FileUpIcon className="h-5 w-5" /> Subir Archivo
+                </div>
+                <div className="hidden sm:flex items-center justify-center gap-3 px-8 py-4 bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-2xl shadow-md font-black text-sm uppercase tracking-widest">
+                  <CameraIcon className="h-5 w-5" /> Cámara
+                </div>
             </div>
           </div>
-        </label>
+        </div>
       )}
     </div>
   );
