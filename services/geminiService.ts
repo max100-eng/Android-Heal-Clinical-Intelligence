@@ -1,5 +1,4 @@
-
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ImageType, AnalysisResult } from "../types";
 
 const SYSTEM_INSTRUCTION = `
