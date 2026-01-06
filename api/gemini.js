@@ -1,16 +1,6 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { streamText } from "ai";
 
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
-
-export async function analyzeClinicalImage(base64Data, mimeType, modality) {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-  
-  const prompt = `Analiza esta imagen médica (${modality}) y proporciona hallazgos clínicos en español.`;
-
-  const result = await model.generateContent([
-    prompt,
-    { inlineData: { data: base64Data, mimeType } }
-  ]);
-  
-  return result.response.text();
-}
+const result = await streamText({
+  model: "google/gemini-2.5-flash",
+  apiKey: process.env.AI_GATEWAY_KEY,
+  baseURL: process.env.AI_GATEWAY_URL,
