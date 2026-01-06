@@ -1,25 +1,16 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Accede a la llave que configuraste en Vercel
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || "");
 
-export async function analyzeImage(base64Data, mimeType, modality) {
+export async function analyzeClinicalImage(base64Data, mimeType, modality) {
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  
+  const prompt = `Analiza esta imagen médica (${modality}) y proporciona hallazgos clínicos en español.`;
 
-  const prompt = `Actúa como un experto en diagnóstico clínico. Analiza esta imagen de ${modality} y proporciona un informe detallado con: 
-  1. Hallazgos principales.
-  2. Diagnóstico diferencial.
-  3. Sugerencias de seguimiento. 
-  Responde siempre en español y con un tono profesional.`;
-
-  const imagePart = {
-    inlineData: {
-      data: base64Data,
-      mimeType
-    },
-  };
-
-  const result = await model.generateContent([prompt, imagePart]);
-  const response = await result.response;
-  return { text: response.text() };
+  const result = await model.generateContent([
+    prompt,
+    { inlineData: { data: base64Data, mimeType } }
+  ]);
+  
+  return result.response.text();
 }
