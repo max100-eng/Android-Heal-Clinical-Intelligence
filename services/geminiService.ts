@@ -1,6 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { ImageType, AnalysisResult } from "../types";
 
+// Instrucción de sistema para definir el comportamiento del modelo
 const SYSTEM_INSTRUCTION = `
 Eres "Android Heal", el núcleo de Inteligencia Clínica de grado hospitalario. Tu misión es asistir a especialistas en la interpretación de pruebas diagnósticas complejas.
 
@@ -15,10 +16,10 @@ PROTOCOLOS DE ANÁLISIS POR MODALIDAD:
 8. URIANÁLISIS: Lectura de 10 parámetros.
 9. TOXICOLOGÍA: Validación de panel.
 10. MEDICINA NUCLEAR: Interpretación de captación.
-11. ELECTROMIOGRAFÍA (EMG): Análisis de actividad eléctrica muscular, potenciales de acción de unidad motora (MUAP), velocidad de conducción nerviosa y signos de denervación o reinervación.
-12. ESPIROMETRÍA: Análisis de FVC, FEV1, relación FEV1/FVC (Tiffeneau) y curvas flujo-volumen.
-13. EEG (Electroencefalograma): Identificación de ondas (alfa, beta, theta, delta), localización de focos epileptiformes, asimetrías y reactividad.
-14. HOLTER: Análisis de ritmo cardíaco extendido (24-48h), cuantificación de extrasístoles, pausas sinusales, variabilidad de la frecuencia cardíaca y correlación con diario de síntomas.
+11. ELECTROMIOGRAFÍA (EMG): Análisis de actividad eléctrica muscular.
+12. ESPIROMETRÍA: Análisis de FVC, FEV1, relación FEV1/FVC.
+13. EEG: Identificación de ondas (alfa, beta, theta, delta).
+14. HOLTER: Análisis de ritmo cardíaco extendido.
 
 REGLAS DE RIGOR MÉDICO:
 - IDIOMA: Responde exclusivamente en ESPAÑOL.
@@ -38,13 +39,16 @@ const getModalityPrompt = (type: ImageType): string => {
     case ImageType.URINALYSIS: return "Interpreta esta tira reactiva de orina.";
     case ImageType.TOXICOLOGY: return "Analiza este panel de toxicología.";
     case ImageType.NUCLEAR_MEDICINE: return "Analiza esta imagen de Medicina Nuclear.";
-    case ImageType.EMG: return "Interpreta este trazado de Electromiografía (EMG). Identifica posibles radiculopatías, miopatías o neuropatías periféricas.";
-    case ImageType.SPIROMETRY: return "Analiza estos resultados de Espirometría. Determina si existe patrón obstructivo, restrictivo o mixto.";
-    case ImageType.EEG: return "Analiza este trazado de EEG. Identifica tipos de ondas predominantes, posibles puntas-onda o anomalías focales.";
-    case ImageType.HOLTER: return "Interpreta este informe de Holter cardíaco. Analiza eventos arrítmicos significativos.";
+    case ImageType.EMG: return "Interpreta este trazado de Electromiografía (EMG).";
+    case ImageType.SPIROMETRY: return "Analiza estos resultados de Espirometría.";
+    case ImageType.EEG: return "Analiza este trazado de EEG.";
+    case ImageType.HOLTER: return "Interpreta este informe de Holter cardíaco.";
     default: return "Realiza una interpretación clínica exhaustiva.";
   }
 };
+
+// Inicialización del cliente de IA con la clave del archivo .env.local
+const genAI = new GoogleGenerativeAI(process.env.API_KEY || "");
 
 export const analyzeImage = async (
   base64Data: string,
@@ -52,54 +56,63 @@ export const analyzeImage = async (
   imageType: ImageType
 ): Promise<AnalysisResult> => {
   if (!base64Data) throw new Error("No hay datos de imagen para analizar.");
-  
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const model = 'gemini-3-pro-preview';
+  if (!process.env.API_KEY) throw new Error("API_KEY no configurada en el servidor.");
 
-  const response = await ai.models.generateContent({
-    model,
-    contents: {
+  // Usamos gemini-1.5-pro que es el modelo más estable para análisis médico visual
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-pro",
+    systemInstruction: SYSTEM_INSTRUCTION,
+  });
+
+  // Configuración de la generación con esquema JSON estricto
+  const generationConfig = {
+    temperature: 0.1, // Baja temperatura para mayor precisión médica
+    responseMimeType: "application/json",
+    responseSchema: {
+      type: SchemaType.OBJECT,
+      properties: {
+        modalityDetected: { type: SchemaType.STRING },
+        clinicalFindings: { type: SchemaType.STRING },
+        differentialDiagnoses: {
+          type: SchemaType.ARRAY,
+          items: {
+            type: SchemaType.OBJECT,
+            properties: {
+              condition: { type: SchemaType.STRING },
+              probability: { type: SchemaType.STRING, enum: ["High", "Moderate", "Low"] },
+              reasoning: { type: SchemaType.STRING }
+            },
+            required: ["condition", "probability", "reasoning"]
+          }
+        },
+        suggestedFollowUp: { type: SchemaType.STRING },
+        confidenceScore: { type: SchemaType.NUMBER },
+        urgentAlert: { type: SchemaType.BOOLEAN },
+      },
+      required: ["modalityDetected", "clinicalFindings", "differentialDiagnoses", "suggestedFollowUp", "confidenceScore", "urgentAlert"]
+    },
+  };
+
+  const result = await model.generateContent({
+    contents: [{
+      role: "user",
       parts: [
         { inlineData: { data: base64Data, mimeType: mimeType.split(';')[0] || 'image/png' } },
         { text: getModalityPrompt(imageType) }
       ]
-    },
-    config: {
-      systemInstruction: SYSTEM_INSTRUCTION,
-      thinkingConfig: { thinkingBudget: 32768 },
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          modalityDetected: { type: Type.STRING },
-          clinicalFindings: { type: Type.STRING },
-          differentialDiagnoses: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                condition: { type: Type.STRING },
-                probability: { type: Type.STRING, enum: ["High", "Moderate", "Low"] },
-                reasoning: { type: Type.STRING }
-              },
-              required: ["condition", "probability", "reasoning"]
-            }
-          },
-          suggestedFollowUp: { type: Type.STRING },
-          confidenceScore: { type: Type.NUMBER },
-          urgentAlert: { type: Type.BOOLEAN },
-        },
-        required: ["modalityDetected", "clinicalFindings", "differentialDiagnoses", "suggestedFollowUp", "confidenceScore", "urgentAlert"]
-      }
-    }
+    }],
+    generationConfig
   });
 
-  const text = response.text;
+  const response = await result.response;
+  const text = response.text();
+  
   if (!text) throw new Error("Respuesta no válida.");
   
   try {
     return JSON.parse(text) as AnalysisResult;
   } catch (e) {
+    console.error("Error parseando JSON:", text);
     throw new Error("Error al procesar el informe clínico estructurado.");
   }
 };
