@@ -1,26 +1,31 @@
-
 <!DOCTYPE html>
 <html lang="es" class="scroll-smooth">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <title>Android Heal | Clinical Reel</title>
-    <meta name="description" content="Plataforma de inteligencia clínica inmersiva estilo Reel." />
-    <meta name="theme-color" content="#001219" />
+    <meta name="description" content="Plataforma de inteligencia clínica inmersiva estilo Reel.">
+    <meta name="theme-color" content="#001219">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="manifest" href="/manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-      tailwind.config = {
+      window.tailwind.config = {
         theme: {
           extend: {
+            spacing: {
+              'safe-top': 'env(safe-area-inset-top)',
+              'safe-bottom': 'env(safe-area-inset-bottom)',
+              'safe-left': 'env(safe-area-inset-left)',
+              'safe-right': 'env(safe-area-inset-right)',
+            },
             colors: {
               'brand-primary': '#005f73',
               'brand-secondary': '#0ea5e9',
               'brand-accent': '#39ff14',
               'brand-dark': '#001219',
-              'brand-card': 'rgba(255, 255, 255, 0.03)',
+              'brand-card': 'rgba(255, 255, 255, 0.03)'
             },
             animation: {
               'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
@@ -28,25 +33,46 @@
               'float': 'float 6s ease-in-out infinite',
               'slide-up': 'slideUp 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards',
               'spin-slow': 'spin 8s linear infinite',
-              'lightning': 'lightning 0.3s ease-out forwards',
+              'lightning': 'lightning 0.4s cubic-bezier(0.19, 1, 0.22, 1) forwards',
+              'lightning-icon': 'lightningIcon 0.5s cubic-bezier(0.19, 1, 0.22, 1) forwards',
+              'breath': 'breath 3s ease-in-out infinite',
+              'pop-in': 'popIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards',
+              'biopulse': 'biopulse 4s ease-in-out infinite'
             },
             keyframes: {
+              biopulse: {
+                '0%, 100%': { opacity: '1', filter: 'drop-shadow(0 0 5px rgba(57, 255, 20, 0.4))' },
+                '50%': { opacity: '0.8', filter: 'drop-shadow(0 0 15px rgba(14, 165, 233, 0.6))' }
+              },
+              breath: {
+                '0%, 100%': { transform: 'scale(1)', opacity: '0.8' },
+                '50%': { transform: 'scale(1.05)', opacity: '1' }
+              },
+              popIn: {
+                '0%': { transform: 'scale(0.8)', opacity: '0' },
+                '100%': { transform: 'scale(1)', opacity: '1' }
+              },
               glow: {
-                'from': { 'box-shadow': '0 0 10px #39ff1422' },
-                'to': { 'box-shadow': '0 0 25px #39ff1466' },
+                from: { boxShadow: '0 0 10px rgba(57, 255, 20, 0.1)' },
+                to: { boxShadow: '0 0 25px rgba(57, 255, 20, 0.4)' }
               },
               float: {
                 '0%, 100%': { transform: 'translateY(0)' },
-                '50%': { transform: 'translateY(-20px)' },
+                '50%': { transform: 'translateY(-20px)' }
               },
               slideUp: {
-                'from': { transform: 'translateY(100%)', opacity: '0' },
-                'to': { transform: 'translateY(0)', opacity: '1' },
+                from: { transform: 'translateY(100%)', opacity: '0' },
+                to: { transform: 'translateY(0)', opacity: '1' }
               },
               lightning: {
-                '0%': { 'background-color': 'rgba(255,255,255,0)', 'box-shadow': '0 0 0 rgba(255,255,255,0)' },
-                '20%': { 'background-color': 'rgba(255,255,255,0.9)', 'box-shadow': '0 0 100px rgba(255,255,255,1)' },
-                '100%': { 'background-color': 'rgba(255,255,255,0)', 'box-shadow': '0 0 0 rgba(255,255,255,0)' },
+                '0%': { opacity: '0', backgroundColor: 'rgba(255,255,255,0)' },
+                '10%': { opacity: '1', backgroundColor: 'rgba(255,255,255,0.8)', boxShadow: '0 0 150px 50px rgba(255,255,255,1)' },
+                '100%': { opacity: '0', backgroundColor: 'rgba(255,255,255,0)' }
+              },
+              lightningIcon: {
+                '0%': { filter: 'brightness(1) contrast(1)', transform: 'scale(1)' },
+                '15%': { filter: 'brightness(3) contrast(1.5)', transform: 'scale(1.1) rotate(5deg)', boxShadow: '0 0 30px #39ff14' },
+                '100%': { filter: 'brightness(1) contrast(1)', transform: 'scale(1) rotate(0deg)' }
               }
             }
           }
@@ -60,12 +86,15 @@
         font-family: 'Plus Jakarta Sans', sans-serif;
         background-color: #001219;
         color: white;
-        overscroll-behavior-y: contain;
+        overscroll-behavior-y: none;
         overflow: hidden;
+        height: 100vh;
+        width: 100vw;
       }
       
       .reel-container {
         height: 100vh;
+        height: 100svh;
         scroll-snap-type: y mandatory;
         overflow-y: scroll;
         scrollbar-width: none;
@@ -75,17 +104,19 @@
       
       .reel-slide {
         height: 100vh;
+        height: 100svh;
         scroll-snap-align: start;
+        scroll-snap-stop: always;
         position: relative;
-        padding-top: env(safe-area-inset-top);
-        padding-bottom: env(safe-area-inset-bottom);
+        padding-top: env(safe-area-inset-top, 20px);
+        padding-bottom: env(safe-area-inset-bottom, 20px);
       }
 
       .glass-morphism {
-        background: rgba(255, 255, 255, 0.03);
-        backdrop-filter: blur(40px);
-        -webkit-backdrop-filter: blur(40px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.02);
+        backdrop-filter: blur(50px);
+        -webkit-backdrop-filter: blur(50px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
       }
 
       .horizontal-carousel {
@@ -93,55 +124,23 @@
         overflow-x: auto;
         scroll-snap-type: x mandatory;
         scrollbar-width: none;
-        -ms-overflow-style: none;
-        gap: 1.5rem;
-        padding: 1.5rem;
         scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
       }
       .horizontal-carousel::-webkit-scrollbar { display: none; }
+      
       .carousel-item {
         scroll-snap-align: center;
         flex-shrink: 0;
       }
 
       .neo-button {
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         position: relative;
         overflow: hidden;
       }
-      .neo-button:active { transform: scale(0.92); }
+      .neo-button:active { transform: scale(0.95); }
       
-      .neon-text-green {
-        text-shadow: 0 0 10px rgba(57, 255, 20, 0.5);
-      }
-      .neon-text-blue {
-        text-shadow: 0 0 10px rgba(14, 165, 233, 0.5);
-      }
-
-      /* BARRA DE SCROLL LÍQUIDA MÁS GRANDE */
-      .liquid-progress {
-        position: fixed;
-        right: 15px;
-        top: 20%;
-        bottom: 20%;
-        width: 14px;
-        background: rgba(255,255,255,0.03);
-        border-radius: 40px;
-        overflow: hidden;
-        z-index: 100;
-        border: 1px solid rgba(255,255,255,0.08);
-        backdrop-filter: blur(10px);
-      }
-      .liquid-thumb {
-        position: absolute;
-        width: 100%;
-        background: linear-gradient(to bottom, #0ea5e9, #39ff14);
-        border-radius: 40px;
-        transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        box-shadow: 0 0 25px rgba(14, 165, 233, 0.6);
-      }
-
-      /* EFECTO RAYO */
       .lightning-flash {
         position: fixed;
         inset: 0;
@@ -150,27 +149,41 @@
         opacity: 0;
       }
       .lightning-active {
-        animation: lightning 0.3s ease-out forwards;
+        animation: lightning 0.4s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+      }
+
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(14, 165, 233, 0.3);
+        border-radius: 10px;
+      }
+
+      @media (max-width: 400px) {
+        .text-huge { font-size: 3rem; }
+      }
+      @media (min-width: 401px) {
+        .text-huge { font-size: 4rem; }
       }
     </style>
   <script type="importmap">
 {
   "imports": {
-    "react-markdown": "https://aistudiocdn.com/react-markdown@^10.1.0",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
-    "vite": "https://aistudiocdn.com/vite@^7.2.6",
-    "ai": "https://aistudiocdn.com/ai@^5.0.107",
-    "@ai-sdk/google": "https://aistudiocdn.com/@ai-sdk/google@^2.0.44",
-    "@capacitor/cli": "https://esm.sh/@capacitor/cli@^8.0.0"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-markdown": "https://esm.sh/react-markdown@^10.1.0",
+    "vite": "https://esm.sh/vite@^7.3.0",
+    "@capacitor/cli": "https://esm.sh/@capacitor/cli@^8.0.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>
 </head>
-  <body class="bg-brand-dark">
+  <body class="bg-brand-dark selection:bg-brand-secondary/30">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
