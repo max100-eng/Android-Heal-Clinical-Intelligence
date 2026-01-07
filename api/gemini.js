@@ -1,42 +1,51 @@
-import { streamText } from "ai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-export default async function handler(req, res) {
+export async function POST(request) {
   try {
-    const { base64, mimeType, modality } = req.body;
+    const { base64, mimeType, modality } = await request.json();
 
     if (!base64 || !mimeType) {
-      return res.status(400).json({ error: "Missing image data" });
+      return Response.json(
+        { error: "Faltan datos de la imagen" },
+        { status: 400 }
+      );
     }
 
-    const result = await streamText({
-      model: "google/gemini-2.5-flash",
-      apiKey: process.env.AI_GATEWAY_KEY,
-      baseURL: process.env.AI_GATEWAY_URL,
-      messages: [
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash"
+    });
+
+    const result = await model.generateContent({
+      contents: [
         {
           role: "user",
-          content: [
+          parts: [
             {
-              type: "text",
-              text: `Analiza esta imagen médica (${modality}) y proporciona hallazgos clínicos en español.`
-            },
-            {
-              type: "input_image",
-              image: {
+              inlineData: {
                 data: base64,
-                mimeType: mimeType
+                mimeType
               }
-            }
+            },
+            { text: `Analiza esta imagen (${modality})` }
           ]
         }
       ]
     });
 
-    res.status(200).json({ result: result.text });
+    const text = result.response.text();
+
+    return Response.json({
+      result: text
+    });
+
   } catch (error) {
-    console.error("Error en Gemini:", error);
-    res.status(500).json({ error: "Error procesando la imagen" });
+    console.error("Error en /api/gemini:", error);
+    return Response.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
   }
 }
-
 
