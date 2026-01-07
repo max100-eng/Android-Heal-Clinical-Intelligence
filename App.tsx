@@ -8,7 +8,6 @@ import ImageUploader from './components/ImageUploader';
 import AnalysisDisplay from './components/AnalysisDisplay';
 import Login from './components/Login';
 import SplashScreen from './components/SplashScreen';
-import CaseLibrary, { ClinicalExample } from './components/CaseLibrary';
 import { 
   SparklesIcon, 
   ActivityIcon,
@@ -81,7 +80,6 @@ const ClinicalApp: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [lightning, setLightning] = useState(false);
   const [isVisionMode, setIsVisionMode] = useState(false);
-  const [showLibrary, setShowLibrary] = useState(false);
   const [modalityAnimKey, setModalityAnimKey] = useState(0);
   
   const reelContainerRef = useRef<HTMLDivElement>(null);
@@ -120,24 +118,7 @@ const ClinicalApp: React.FC = () => {
     }
   };
 
-  const handleSelectExample = (example: ClinicalExample) => {
-    setShowLibrary(false);
-    setLoading(true);
-    triggerLightning();
-    setSelectedType(example.modality);
-    setImageData({
-      base64: '', 
-      mimeType: 'image/jpeg',
-      previewUrl: example.placeholderUrl
-    });
-    
-    setTimeout(() => {
-      setAnalysisResult(example.analysis);
-      setHealthData(null);
-      setLoading(false);
-      scrollToSlide(2);
-    }, 1200);
-  };
+
 
   const handleModalityChange = (type: ImageType) => {
     if (selectedType === type) return;
@@ -192,7 +173,6 @@ const ClinicalApp: React.FC = () => {
     <div className={`app-wrapper ${isVisionMode ? 'vision-theme' : ''}`}>
       <div className={`lightning-flash ${lightning ? 'lightning-active' : ''}`} />
       <SplashScreen isVisible={showSplash} />
-      {showLibrary && <CaseLibrary onSelect={handleSelectExample} onClose={() => setShowLibrary(false)} />}
       
       {/* Dynamic Indicators */}
       <div className="fixed right-3 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-2.5 pointer-events-none sm:right-6">
