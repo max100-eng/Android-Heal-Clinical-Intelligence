@@ -81,6 +81,7 @@ const ClinicalApp: React.FC = () => {
   const [lightning, setLightning] = useState(false);
   const [isVisionMode, setIsVisionMode] = useState(false);
   const [modalityAnimKey, setModalityAnimKey] = useState(0);
+  const [showLibrary, setShowLibrary] = useState(false);
   
   const reelContainerRef = useRef<HTMLDivElement>(null);
   const bottomCarouselRef = useRef<HTMLDivElement>(null);
@@ -108,7 +109,12 @@ const ClinicalApp: React.FC = () => {
     try {
       const vitals = await fetchHealthData();
       setHealthData(vitals);
-      const result = await analyzeImage(imageData.base64, imageData.mimeType, selectedType, vitals);
+      const result = await analyzeImage({
+        base64: imageData.base64,
+        mimeType: imageData.mimeType,
+        modality: selectedType
+      });
+
       setAnalysisResult(result);
       scrollToSlide(2);
     } catch (err) {
