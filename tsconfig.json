@@ -4,26 +4,27 @@
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
     "module": "ESNext",
-    "lib": [
-      "ES2022",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
     "types": [
-      "node"
+      "node", 
+      "@vercel/node"  // <--- Añade esto
     ],
-    "moduleResolution": "bundler",
+    "moduleResolution": "node", // <--- Cambia "bundler" por "node" para la API
     "isolatedModules": true,
     "moduleDetection": "force",
     "allowJs": true,
     "jsx": "react-jsx",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"]
     },
     "allowImportingTsExtensions": true,
-    "noEmit": true
-  }
+    "noEmit": true,
+    "strict": true // Recomendado para evitar errores de null/undefined con la API
+  },
+  "include": [
+    "src", 
+    "api",   // <--- ¡IMPORTANTE! Asegúrate de que la carpeta api esté aquí
+    ".env"
+  ]
 }

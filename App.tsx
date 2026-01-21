@@ -107,18 +107,40 @@ const ClinicalApp: React.FC = () => {
     setError('');
     
     try {
-      const vitals = await fetchHealthData();
+      // Obtenemos datos de salud si el servicio está disponible
+      const vitals = await fetchHealthData().catch(() => null);
       setHealthData(vitals);
-      const result = await analyzeImage({
-        base64: imageData.base64,
-        mimeType: imageData.mimeType,
-        modality: selectedType
+
+      // LLAMADA SEGURA A LA API DE VERCEL
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: `Analiza esta imagen de modalidad ${selectedType}.`,
+          image: imageData.base64, 
+          mimeType: imageData.mimeType,
+          vitals: vitals
+        })
       });
 
-      setAnalysisResult(result);
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Fallo en el motor clínico');
+      }
+
+      // Actualizamos el estado con la respuesta de Gemini
+      setAnalysisResult({
+        success: true,
+        response: result.response // El texto analizado
+      });
+
       scrollToSlide(2);
-    } catch (err) {
-      setError('Error en la sincronización o motor clínico.');
+    } catch (err: any) {
+      console.error('Error de análisis:', err);
+      setError(err.message || 'Error en la sincronización o motor clínico.');
     } finally {
       setLoading(false);
     }
