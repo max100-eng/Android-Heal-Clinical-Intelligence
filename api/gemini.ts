@@ -1,51 +1,30 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-export async function POST(request) {
-  try {
-    const { base64, mimeType, modality } = await request.json();
+// Error TS14,42: Solucionado asegurando que la clave no sea undefined
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
-    if (!base64 || !mimeType) {
-      return Response.json(
-        { error: "Faltan datos de la imagen" },
-        { status: 400 }
-      );
+// Error TS7006: Solucionado definiendo el tipo del request
+export async function getGeminiResponse(prompt: string, imageBase64?: string, mimeType?: string) {
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    if (imageBase64 && mimeType) {
+      const result = await model.generateContent([
+        prompt,
+        {
+          inlineData: {
+            data: imageBase64,
+            mimeType: mimeType
+          }
+        }
+      ]);
+      return result.response.text();
     }
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash"
-    });
-
-    const result = await model.generateContent({
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              inlineData: {
-                data: base64,
-                mimeType
-              }
-            },
-            { text: `Analiza esta imagen (${modality})` }
-          ]
-        }
-      ]
-    });
-
-    const text = result.response.text();
-
-    return Response.json({
-      result: text
-    });
-
+    const result = await model.generateContent(prompt);
+    return result.response.text();
   } catch (error) {
-    console.error("Error en /api/gemini:", error);
-    return Response.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
+    console.error("Gemini API Error:", error);
+    throw new Error("Fallo en la comunicación con el motor clínico.");
   }
 }
-
