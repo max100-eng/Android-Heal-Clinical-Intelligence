@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { ImageType, AnalysisResult, PatientHealthContext } from './types';
 import { fetchHealthData } from './services/healthService';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -7,6 +8,7 @@ import ImageUploader from './components/ImageUploader';
 import AnalysisDisplay from './components/AnalysisDisplay';
 import Login from './components/Login';
 import SplashScreen from './components/SplashScreen';
+
 import { 
   SparklesIcon, 
   ActivityIcon,
@@ -69,6 +71,8 @@ const MODALITY_SHORTCUTS = [
 
 const ClinicalApp: React.FC = () => {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+
+  // Estados principales
   const [showSplash, setShowSplash] = useState(true);
   const [selectedType, setSelectedType] = useState<ImageType>(ImageType.ECG);
   const [imageData, setImageData] = useState<ImageData | null>(null);
@@ -81,10 +85,21 @@ const ClinicalApp: React.FC = () => {
   const [isVisionMode, setIsVisionMode] = useState(false);
   const [modalityAnimKey, setModalityAnimKey] = useState(0);
   const [showLibrary, setShowLibrary] = useState(false);
-  
+  const [scrollY, setScrollY] = useState(0);
+
+  // ⭐ Fonendo Digital
+  const [isStethoscopeMode, setIsStethoscopeMode] = useState(false);
+
+  const toggleStethoscope = () => {
+    setIsStethoscopeMode(prev => !prev);
+    triggerLightning();
+  };
+
+  // Refs
   const reelContainerRef = useRef<HTMLDivElement>(null);
   const bottomCarouselRef = useRef<HTMLDivElement>(null);
 
+  // Funciones
   const triggerLightning = () => {
     setLightning(true);
     setModalityAnimKey(prev => prev + 1);
@@ -108,9 +123,8 @@ const ClinicalApp: React.FC = () => {
     setError('');
 
     try {
-      // Opcional: contexto clínico
       const vitals = await fetchHealthData().catch(() => null);
-      setHealthData(vitals);
+      setHealthData(vitals || null);
 
       const formData = new FormData();
 
@@ -182,13 +196,15 @@ const ClinicalApp: React.FC = () => {
 
   const handleScroll = () => {
     if (!reelContainerRef.current) return;
+    const y = reelContainerRef.current.scrollTop;
+    setScrollY(y);
     const index = Math.round(
-      reelContainerRef.current.scrollTop / reelContainerRef.current.clientHeight
+      y / reelContainerRef.current.clientHeight
     );
     if (index !== currentSlide) setCurrentSlide(index);
   };
 
-  const handleImageUpload = (file: File, isAnnotation: boolean = false) => {
+  const handleImageUpload = (file: File) => {
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64 = reader.result as string;
@@ -212,25 +228,48 @@ const ClinicalApp: React.FC = () => {
   const activeModality = MODALITY_SHORTCUTS.find(m => m.type === selectedType)!;
   const ActiveModalityIcon = activeModality.icon;
 
+  const depthFactor = scrollY * 0.0008;
+
   return (
-    <div className="min-h-screen bg-brand-dark text-white flex flex-col">
-      {/* Vision Mode Toggle / Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 px-4 pt-6 pb-3 bg-gradient-to-b from-black/60 via-black/20 to-transparent backdrop-blur-xl">
-        <div className="max-w-md mx-auto flex items-center justify-between">
+    <div
+      className={`min-h-screen bg-brand-dark text-white flex flex-col relative overflow-hidden ${
+        isStethoscopeMode ? 'ring-2 ring-cyan-400/40 shadow-[0_0_60px_rgba(56,189,248,0.5)]' : ''
+      }`}
+    >
+      {/* Vision Mode + Fonendo + Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 px-4 pt-6 pb-3 bg-gradient-to-b from-black/70 via-black/30 to-transparent backdrop-blur-2xl border-b border-white/5">
+        <div className="max-w-md mx-auto flex items-center justify-between gap-2">
+
+          {/* Modo Visión */}
           <button
             onClick={() => setIsVisionMode(v => !v)}
             className={`flex items-center gap-2 px-3 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border ${
               isVisionMode
-                ? 'border-brand-accent bg-brand-accent/10 text-brand-accent'
+                ? 'border-cyan-400/80 bg-cyan-500/10 text-cyan-300 shadow-[0_0_25px_rgba(34,211,238,0.6)]'
                 : 'border-white/10 text-white/40'
             }`}
           >
             <VisionHeadsetIcon className="h-4 w-4" />
-            Modo Visión
+            Visión
           </button>
+
+          {/* Fonendo Digital */}
+          <button
+            onClick={toggleStethoscope}
+            className={`flex items-center gap-2 px-3 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border ${
+              isStethoscopeMode
+                ? 'border-cyan-400/80 bg-cyan-500/10 text-cyan-300 shadow-[0_0_25px_rgba(34,211,238,0.6)]'
+                : 'border-white/10 text-white/40'
+            }`}
+          >
+            <HeartPulseIcon className="h-4 w-4" />
+            Fonendo
+          </button>
+
+          {/* Biblioteca */}
           <button
             onClick={() => setShowLibrary(v => !v)}
-            className="flex items-center gap-2 px-3 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border border-white/10 text-white/40"
+            className="flex items-center gap-2 px-3 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border border-white/10 text-white/40 hover:text-white/70 hover:border-white/30 transition-colors"
           >
             <BookCheckIcon className="h-4 w-4" />
             Casos
@@ -238,68 +277,171 @@ const ClinicalApp: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Reel */}
-      <div
+      {/* MAIN REEL */}
+      <motion.div
         ref={reelContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-scroll snap-y snap-mandatory pt-24 pb-32"
+        className="flex-1 overflow-y-scroll snap-y snap-mandatory pt-24 pb-32 relative"
+        transition={{
+          type: 'spring',
+          stiffness: 120,
+          damping: 20,
+        }}
       >
-        {/* Slide 1: Welcome & Active Modality */}
-        <section className="reel-slide flex flex-col items-center justify-center p-6 sm:p-12 snap-start">
-          <div className="absolute inset-0 bg-gradient-to-b from-brand-secondary/10 via-transparent to-brand-dark pointer-events-none"></div>
-          
-          <div className="relative z-10 w-full max-w-lg flex flex-col items-center text-center">
-            <div className="w-20 h-20 bg-white/5 rounded-3xl flex items-center justify-center mb-6 border border-white/10 glass-morphism animate-breath sm:w-28 sm:h-28">
+
+        {/* SLIDE 1 — Protocolo ACTIVO */}
+        <section className="reel-slide flex flex-col items-center justify-center p-6 sm:p-12 snap-start relative">
+          <motion.div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                'linear-gradient(to bottom, rgba(56,189,248,0.18), transparent 40%, rgba(15,23,42,1))',
+            }}
+            animate={{ opacity: [0.6, 0.9, 0.7] }}
+            transition={{ duration: 8, repeat: Infinity, repeatType: 'mirror' }}
+          />
+
+          <motion.div
+            className="relative z-10 w-full max-w-lg flex flex-col items-center text-center"
+            style={{ transform: `translateY(${scrollY * -0.12}px)` }}
+          >
+            {/* Logo */}
+            <motion.div
+              className="w-20 h-20 bg-white/5 rounded-3xl flex items-center justify-center mb-6 border border-cyan-300/40 glass-morphism sm:w-28 sm:h-28"
+              animate={{
+                boxShadow: [
+                  '0 0 0 rgba(56,189,248,0.0)',
+                  '0 0 40px rgba(56,189,248,0.55)',
+                  '0 0 20px rgba(56,189,248,0.35)',
+                ],
+                borderColor: [
+                  'rgba(103,232,249,0.4)',
+                  'rgba(56,189,248,0.9)',
+                  'rgba(103,232,249,0.5)',
+                ],
+              }}
+              transition={{ duration: 6, repeat: Infinity, repeatType: 'mirror' }}
+            >
               <ClinicalAppLogo className="h-14 w-14 sm:h-20 sm:w-20" />
-            </div>
-            <h2 className="text-3xl font-black italic uppercase tracking-tighter leading-tight mb-2 sm:text-5xl">
-              Protocolo <br /> <span className="text-brand-secondary">ACTIVO</span>
-            </h2>
-            <p className="text-white/30 text-[9px] font-black uppercase tracking-[0.4em] mb-12 sm:text-[11px]">
+            </motion.div>
+
+            {/* Título */}
+            <motion.h2
+              className="text-3xl font-black italic uppercase tracking-tighter leading-tight mb-2 sm:text-5xl"
+              style={{ opacity: Math.max(1 - scrollY * 0.002, 0.2) }}
+            >
+              Protocolo <br /> <span className="text-cyan-300">ACTIVO</span>
+            </motion.h2>
+
+            <motion.p
+              className="text-white/40 text-[9px] font-black uppercase tracking-[0.4em] mb-12 sm:text-[11px]"
+              style={{ letterSpacing: `${0.4 + depthFactor * 2}em` }}
+            >
               Grado Hospitalario
-            </p>
-            
-            <div 
-              key={`${selectedType}-${modalityAnimKey}`} 
-              className={`flex flex-col items-center gap-4 p-8 w-full bg-white/5 rounded-[2.5rem] border border-white/10 mb-10 transition-all duration-700 animate-lightning-icon ${
+            </motion.p>
+
+            {/* Módulo de modalidad activa */}
+            <motion.div
+              key={`${selectedType}-${modalityAnimKey}`}
+              className={`flex flex-col items-center gap-4 p-8 w-full rounded-[2.5rem] border mb-10 transition-all duration-700 ${
                 isVisionMode
-                  ? 'glass-morphism shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6)] scale-105 active-glow'
-                  : 'shadow-xl'
+                  ? 'glass-morphism shadow-[0_40px_80px_-20px_rgba(8,47,73,0.9)] active-glow'
+                  : 'bg-white/5 shadow-xl border-white/10'
               }`}
+              style={{
+                background:
+                  'radial-gradient(circle at top, rgba(56,189,248,0.18), rgba(15,23,42,0.95))',
+                borderColor: 'rgba(148, 233, 255, 0.4)',
+                boxShadow: `0 0 ${30 + depthFactor * 80}px rgba(56,189,248,0.55)`,
+                transform: `translateY(${scrollY * 0.04}px) scale(${1 + depthFactor * 0.2})`,
+              }}
             >
               <div className="relative">
-                <div className="absolute inset-0 bg-brand-secondary/20 blur-2xl rounded-full animate-pulse"></div>
-                <ActiveModalityIcon className="h-16 w-16 text-brand-secondary relative z-10 sm:h-20 sm:w-20" />
+                <motion.div
+                  className="absolute inset-0 rounded-full"
+                  style={{
+                    background: 'radial-gradient(circle, rgba(56,189,248,0.4), transparent 60%)',
+                  }}
+                  animate={{ opacity: [0.4, 0.9, 0.5], scale: [1, 1.2, 1.05] }}
+                  transition={{ duration: 5, repeat: Infinity, repeatType: 'mirror' }}
+                />
+
+                <motion.div
+                  className="relative z-10"
+                  animate={{ scale: [1, 1.08, 1], rotate: [-1.5, 1.5, 0] }}
+                  transition={{ duration: 4, repeat: Infinity, repeatType: 'mirror' }}
+                >
+                  <ActiveModalityIcon className="h-16 w-16 text-cyan-300 sm:h-20 sm:w-20" />
+                </motion.div>
               </div>
-              <h3 className="text-3xl font-black text-white uppercase italic tracking-widest sm:text-4xl">
+
+              <motion.h3
+                className="text-3xl font-black text-white uppercase italic tracking-widest sm:text-4xl"
+                animate={{ letterSpacing: ['0.2em', '0.35em', '0.25em'] }}
+                transition={{ duration: 4, repeat: Infinity, repeatType: 'mirror' }}
+              >
                 {activeModality.label}
-              </h3>
-            </div>
-            
-            <button
+              </motion.h3>
+            </motion.div>
+
+            {/* Botón siguiente */}
+            <motion.button
               onClick={() => scrollToSlide(1)}
-              className="flex flex-col items-center gap-3 text-brand-secondary/80 hover:text-brand-accent transition-colors group"
+              className="flex flex-col items-center gap-3 text-cyan-300/80 hover:text-cyan-200 transition-colors group"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.94 }}
             >
               <span className="text-[10px] font-black uppercase tracking-[0.4em] group-hover:tracking-[0.6em] transition-all">
                 Siguiente Fase
               </span>
               <ChevronDownIcon className="h-6 w-6 animate-bounce" />
-            </button>
-          </div>
+            </motion.button>
+          </motion.div>
         </section>
 
-        {/* Slide 2: Capture */}
-        <section className="reel-slide flex flex-col items-center justify-center p-4 sm:p-10 snap-start">
-          <div className="w-full max-w-md space-y-6 flex flex-col items-center">
+        {/* SLIDE 2 — Captura Médica */}
+        <section className="reel-slide flex flex-col items-center justify-center p-4 sm:p-10 snap-start relative">
+          <motion.div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                'linear-gradient(to bottom, rgba(15,23,42,1), rgba(15,23,42,0.9), rgba(8,47,73,0.9))',
+            }}
+          />
+
+          <motion.div
+            className="w-full max-w-md space-y-6 flex flex-col items-center relative z-10"
+            style={{ transform: `translateY(${(scrollY - window.innerHeight) * 0.06}px)` }}
+          >
             <div className="text-center">
-              <h2 className="text-2xl font-black italic uppercase tracking-tighter text-brand-accent sm:text-4xl">
+              <motion.h2
+                className="text-2xl font-black italic uppercase tracking-tighter text-cyan-300 sm:text-4xl"
+                animate={{
+                  textShadow: [
+                    '0 0 0 rgba(56,189,248,0.0)',
+                    '0 0 18px rgba(56,189,248,0.8)',
+                    '0 0 8px rgba(56,189,248,0.4)',
+                  ],
+                }}
+                transition={{ duration: 5, repeat: Infinity, repeatType: 'mirror' }}
+              >
                 Captura Médica
-              </h2>
-              <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest mt-1">
+              </motion.h2>
+
+              <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-1">
                 Sincronización de Imagen
               </p>
             </div>
-            <div className="w-full h-[50svh] sm:h-[55svh] flex items-center transition-all">
+
+            <motion.div
+              className="w-full h-[50svh] sm:h-[55svh] flex items-center transition-all"
+              style={{
+                boxShadow: imageData
+                  ? '0 0 40px rgba(56,189,248,0.55)'
+                  : '0 0 0 rgba(0,0,0,0)',
+                borderRadius: '1.75rem',
+              }}
+            >
               <ImageUploader
                 onImageUpload={handleImageUpload}
                 previewUrl={imageData?.previewUrl}
@@ -309,14 +451,17 @@ const ClinicalApp: React.FC = () => {
                   setError('');
                 }}
               />
-            </div>
+            </motion.div>
+
             {imageData && (
-              <button
+              <motion.button
                 onClick={handleAnalyze}
                 disabled={loading}
-                className="w-full py-6 bg-brand-secondary rounded-3xl shadow-2xl neo-button group"
+                className="w-full py-6 bg-cyan-500/90 rounded-3xl shadow-2xl neo-button group border border-cyan-200/60"
+                whileHover={{ scale: loading ? 1 : 1.03 }}
+                whileTap={{ scale: 0.95 }}
               >
-                <span className="flex items-center justify-center gap-3 text-white font-black text-lg uppercase italic sm:text-xl">
+                <span className="flex items-center justify-center gap-3 text-slate-950 font-black text-lg uppercase italic sm:text-xl">
                   {loading ? (
                     <RefreshCwIcon className="animate-spin h-6 w-6" />
                   ) : (
@@ -325,119 +470,201 @@ const ClinicalApp: React.FC = () => {
                     </>
                   )}
                 </span>
-              </button>
+              </motion.button>
             )}
-          </div>
+          </motion.div>
         </section>
 
-        {/* Slide 3: Results */}
-        <section className="reel-slide overflow-y-auto pt-24 pb-48 sm:pt-32 snap-start">
-          <div className="w-full max-w-md mx-auto px-6">
-            <AnalysisDisplay 
-              loading={loading} 
-              error={error} 
-              result={analysisResult} 
-              previewUrl={imageData?.previewUrl} 
+        {/* SLIDE 3 — Resultados */}
+        <section className="reel-slide overflow-y-auto pt-24 pb-48 sm:pt-32 snap-start relative">
+          <motion.div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                'radial-gradient(circle at top, rgba(56,189,248,0.25), rgba(15,23,42,1))',
+            }}
+          />
+
+          <motion.div
+            className="w-full max-w-md mx-auto px-6 relative z-10"
+            style={{
+              transform: `translateY(${(scrollY - 2 * window.innerHeight) * 0.08}px)`,
+            }}
+          >
+            <AnalysisDisplay
+              loading={loading}
+              error={error}
+              result={analysisResult}
+              previewUrl={imageData?.previewUrl}
               healthData={healthData}
             />
-            <button 
-              onClick={() => { triggerLightning(); scrollToSlide(0); }} 
-              className="mt-8 mb-12 w-full py-6 glass-morphism rounded-3xl border border-white/10 text-[11px] font-black uppercase tracking-[0.3em] text-brand-secondary flex items-center justify-center gap-3 hover:bg-white/5 transition-all active:scale-95"
+
+            <motion.button
+              onClick={() => {
+                triggerLightning();
+                scrollToSlide(0);
+              }}
+              className="mt-8 mb-12 w-full py-6 glass-morphism rounded-3xl border border-cyan-300/40 text-[11px] font-black uppercase tracking-[0.3em] text-cyan-300 flex items-center justify-center gap-3 hover:bg-cyan-500/5 transition-all active:scale-95"
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.95 }}
             >
               Nuevo Diagnóstico <RefreshCwIcon className="h-4 w-4" />
-            </button>
-          </div>
+            </motion.button>
+          </motion.div>
         </section>
-      </div>
-
-      {/* Main Navigation Hub */}
+      {/* MAIN NAVIGATION HUB */}
       <nav className="fixed bottom-0 left-0 right-0 z-[60] pb-safe-bottom px-4 mb-4">
         <div className="max-w-md mx-auto relative group">
-          <div className={`glass-morphism rounded-[2.5rem] p-3 flex flex-col gap-2 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.9)] border border-white/10 transition-all duration-700 ${
-            isVisionMode ? 'bg-white/10 ring-2 ring-brand-accent/20' : ''
-          }`}>
-            
+          <motion.div
+            className="glass-morphism rounded-[2.5rem] p-3 flex flex-col gap-2 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.9)] border border-white/10 transition-all duration-700 bg-slate-950/70 backdrop-blur-2xl"
+            animate={{
+              boxShadow: [
+                '0 0 0 rgba(56,189,248,0.0)',
+                '0 0 40px rgba(56,189,248,0.55)',
+                '0 0 18px rgba(56,189,248,0.35)',
+              ],
+              borderColor: [
+                'rgba(148,163,184,0.4)',
+                'rgba(56,189,248,0.7)',
+                'rgba(148,163,184,0.5)',
+              ],
+            }}
+            transition={{
+              duration: 7,
+              repeat: Infinity,
+              repeatType: 'mirror',
+            }}
+          >
+
             {/* Quick Access Icons */}
             <div className="flex justify-around items-center px-2 border-b border-white/5 pb-2">
               {[BarChartIcon, CameraIcon, ActivityIcon, ShieldCheckIcon].map((Icon, i) => (
-                <button 
-                  key={i} 
-                  onClick={() => i < 3 ? scrollToSlide(i) : window.open('https://wa.me/34670887715')} 
+                <motion.button
+                  key={i}
+                  onClick={() => i < 3 ? scrollToSlide(i) : window.open('https://wa.me/34670887715')}
                   className={`p-3 rounded-2xl transition-all duration-300 active:scale-90 ${
                     currentSlide === i
-                      ? 'text-brand-accent bg-white/5 shadow-inner'
+                      ? 'text-cyan-300 bg-white/5 shadow-inner'
                       : 'text-white/30 hover:text-white/60'
                   }`}
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.9 }}
                 >
                   <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
-                </button>
+                </motion.button>
               ))}
             </div>
 
             {/* Carousel Hub */}
             <div className="relative flex items-center h-16 sm:h-20">
-              <button 
-                onClick={() => navigateModality('prev')} 
-                className="absolute left-0 z-20 p-2 text-white/30 hover:text-white transition-colors bg-brand-dark/60 backdrop-blur-md rounded-r-xl active:scale-90"
+              <button
+                onClick={() => navigateModality('prev')}
+                className="absolute left-0 z-20 p-2 text-white/30 hover:text-white transition-colors bg-slate-950/80 backdrop-blur-md rounded-r-xl active:scale-90"
               >
                 <ChevronLeftIcon className="h-4 w-4" />
               </button>
-              
-              <div 
-                ref={bottomCarouselRef} 
+
+              <div
+                ref={bottomCarouselRef}
                 className="flex-1 horizontal-carousel px-10 py-1 gap-6 overflow-x-auto"
               >
                 {MODALITY_SHORTCUTS.map((item) => {
                   const Icon = item.icon;
                   const isActive = selectedType === item.type;
+
                   return (
-                    <button 
-                      key={item.type} 
-                      onClick={() => handleModalityChange(item.type)} 
+                    <motion.button
+                      key={item.type}
+                      onClick={() => handleModalityChange(item.type)}
                       className="carousel-item flex flex-col items-center justify-center gap-1.5 min-w-[56px] sm:min-w-[70px] active:scale-90"
+                      whileHover={{ scale: 1.08 }}
+                      whileTap={{ scale: 0.9 }}
                     >
-                      <div
-                        className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 border-2 sm:w-14 sm:h-14 ${
+                      <motion.div
+                        className="w-12 h-12 rounded-2xl flex items-center justify-center border-2 sm:w-14 sm:h-14"
+                        animate={
                           isActive
-                            ? 'bg-brand-secondary border-white scale-110 shadow-[0_0_20px_rgba(14,165,233,0.5)] rotate-2'
-                            : 'bg-white/5 border-white/5 opacity-30'
-                        }`}
-                        key={isActive ? modalityAnimKey : item.type}
+                            ? {
+                                scale: [1, 1.12, 1.05],
+                                rotate: [-2, 2, 0],
+                                boxShadow: [
+                                  '0 0 0 rgba(56,189,248,0.0)',
+                                  '0 0 25px rgba(56,189,248,0.9)',
+                                  '0 0 12px rgba(56,189,248,0.6)',
+                                ],
+                              }
+                            : {
+                                scale: 1,
+                                rotate: 0,
+                                boxShadow: '0 0 0 rgba(0,0,0,0)',
+                              }
+                        }
+                        transition={{
+                          duration: 4,
+                          repeat: isActive ? Infinity : 0,
+                          repeatType: 'mirror',
+                        }}
+                        style={{
+                          background: isActive
+                            ? 'linear-gradient(135deg, rgba(56,189,248,1), rgba(59,130,246,1))'
+                            : 'rgba(15,23,42,0.9)',
+                          borderColor: isActive ? 'rgba(248,250,252,0.9)' : 'rgba(148,163,184,0.3)',
+                          opacity: isActive ? 1 : 0.35,
+                        }}
                       >
                         <Icon className={`h-5 w-5 sm:h-6 sm:w-6 ${isActive ? 'text-white' : 'text-white/80'}`} />
-                      </div>
+                      </motion.div>
+
                       <span
                         className={`text-[7px] font-black uppercase tracking-widest transition-all duration-300 ${
-                          isActive ? 'text-brand-secondary opacity-100' : 'text-white/10 opacity-0'
+                          isActive ? 'text-cyan-300 opacity-100' : 'text-white/10 opacity-0'
                         }`}
                       >
                         {item.label}
                       </span>
-                    </button>
+                    </motion.button>
                   );
                 })}
               </div>
 
-              <button 
-                onClick={() => navigateModality('next')} 
-                className="absolute right-0 z-20 p-2 text-white/30 hover:text-white transition-colors bg-brand-dark/60 backdrop-blur-md rounded-l-xl active:scale-90"
+              <button
+                onClick={() => navigateModality('next')}
+                className="absolute right-0 z-20 p-2 text-white/30 hover:text-white transition-colors bg-slate-950/80 backdrop-blur-md rounded-l-xl active:scale-90"
               >
                 <ChevronRightIcon className="h-4 w-4" />
               </button>
             </div>
-          </div>
-          
-          {/* Central Fab Trigger */}
+          </motion.div>
+
+          {/* Central Floating Action Button */}
           <div className="absolute -top-12 left-1/2 -translate-x-1/2 pointer-events-none group-hover:scale-110 transition-transform duration-500">
-            <button 
-              onClick={handleAnalyze} 
-              disabled={loading} 
-              className={`w-16 h-16 bg-brand-secondary rounded-full flex items-center justify-center shadow-[0_20px_40px_rgba(14,165,233,0.5)] border-[5px] border-brand-dark pointer-events-auto active:scale-90 transition-all sm:w-20 sm:h-20 ${
-                loading ? 'animate-spin-slow' : 'animate-breath'
-              }`}
+            <motion.button
+              onClick={handleAnalyze}
+              disabled={loading}
+              className="w-16 h-16 bg-cyan-500 rounded-full flex items-center justify-center shadow-[0_20px_40px_rgba(56,189,248,0.7)] border-[5px] border-slate-950 pointer-events-auto sm:w-20 sm:h-20"
+              animate={{
+                scale: loading ? [1, 0.96, 1] : [1, 1.06, 1],
+                boxShadow: loading
+                  ? [
+                      '0 0 20px rgba(56,189,248,0.7)',
+                      '0 0 40px rgba(56,189,248,1)',
+                      '0 0 25px rgba(56,189,248,0.8)',
+                    ]
+                  : [
+                      '0 0 18px rgba(56,189,248,0.7)',
+                      '0 0 32px rgba(56,189,248,0.9)',
+                      '0 0 20px rgba(56,189,248,0.7)',
+                    ],
+              }}
+              transition={{
+                duration: 3.5,
+                repeat: Infinity,
+                repeatType: 'mirror',
+              }}
+              whileTap={{ scale: 0.9 }}
             >
               <SparklesIcon className={`h-8 w-8 text-white sm:h-10 sm:w-10 ${loading ? 'animate-pulse' : ''}`} />
-            </button>
+            </motion.button>
           </div>
         </div>
       </nav>
