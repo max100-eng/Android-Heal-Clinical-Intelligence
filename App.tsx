@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Activity, Settings, AlertCircle, CheckCircle2, Loader2, Eye, Clock, Heart, 
-  XCircle, Zap, Camera, Upload, Mic, Brain, Radio, Target, Search, FileText
+  XCircle, Zap, Camera, Upload, Mic, Brain, Radio, Target, Search, FileText, MapPin
 } from 'lucide-react';
 
 type DiagnosticMode = 'RETINA' | 'ECG' | 'RX' | 'FONENDO' | 'EEG' | 'OTO';
@@ -12,23 +12,31 @@ export default function App() {
   const [showPanel, setShowPanel] = useState(false);
   const [showCaptureMenu, setShowCaptureMenu] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [location, setLocation] = useState<string>("Localizando...");
   
-  // Referencia para el input de archivos oculto
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Lógica de análisis y procesamiento
+  // Función para obtener ubicación real
+  const fetchLocation = () => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        const { latitude, longitude } = position.coords;
+        setLocation(`${latitude.toFixed(4)}°N, ${longitude.toFixed(4)}°E`);
+      }, () => {
+        setLocation("Ubicación restringida");
+      });
+    }
+  };
+
   const executeAnalysis = async () => {
     setShowPanel(false);
     setShowCaptureMenu(false);
     setStatus('loading');
+    fetchLocation(); // Captura ubicación durante el escaneo
 
     try {
-      // Simulación de proceso de IA
       await new Promise(resolve => setTimeout(resolve, 3500));
-      
       setStatus('success');
-      
-      // Forzar apertura de panel tras el escaneo
       setTimeout(() => {
         setShowPanel(true);
         setStatus('idle');
@@ -38,14 +46,13 @@ export default function App() {
     }
   };
 
-  // Manejador de subida de archivos
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setPreviewImage(reader.result as string); // Carga la imagen en el visor
-        executeAnalysis(); // Dispara el escaneo
+        setPreviewImage(reader.result as string);
+        executeAnalysis();
       };
       reader.readAsDataURL(file);
     }
@@ -58,7 +65,6 @@ export default function App() {
         .scanner-bar { position: absolute; width: 100%; height: 3px; background: #22d3ee; box-shadow: 0 0 20px #22d3ee; z-index: 50; animation: scanMove 2s linear infinite; }
         @keyframes scanMove { 0% { top: 0%; opacity: 0; } 50% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
         .glass-container { backdrop-filter: blur(10px); border: 1px solid rgba(34,211,238,0.1); }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>
 
       {/* Selector de Especialidades */}
@@ -80,44 +86,50 @@ export default function App() {
       <div className="relative w-[92%] max-w-4xl h-[420px] rounded-[3rem] overflow-hidden hologram-view border border-slate-800/50 shadow-2xl glass-container flex items-center justify-center">
         {status === 'loading' && <div className="scanner-bar" />}
         
-        {/* Visualización de Imagen o Placeholder */}
         <div className="relative w-full h-full flex items-center justify-center p-8">
           {previewImage ? (
-            <img src={previewImage} className="max-h-full max-w-full object-contain rounded-xl opacity-80 mix-blend-lighten" alt="Capture" />
-          ) : mode === 'RETINA' ? (
-            <div className="w-64 h-64 rounded-full border-2 border-cyan-500/20 overflow-hidden relative shadow-inner">
-               <div className="absolute inset-0 bg-cyan-950/20 animate-pulse" />
-               <Target className="absolute inset-0 m-auto text-cyan-900/50" size={100} />
-            </div>
+            <img src={previewImage} className="max-h-full max-w-full object-contain rounded-xl opacity-80 mix-blend-lighten shadow-[0_0_40px_rgba(34,211,238,0.2)]" alt="Capture" />
           ) : (
             <div className="flex flex-col items-center opacity-20">
               <Activity size={80} className="text-cyan-500" />
-              <p className="text-[10px] mt-4 tracking-[0.4em] uppercase font-bold text-cyan-700">Esperando Captura {mode}</p>
+              <p className="text-[10px] mt-4 tracking-[0.4em] uppercase font-bold text-cyan-700 italic">Protocolo {mode} en espera</p>
             </div>
           )}
         </div>
 
-        {/* Panel de Diagnóstico IA */}
+        {/* Panel de Diagnóstico con GEOLOCALIZACIÓN */}
         {showPanel && (
           <div className="absolute inset-y-0 right-0 w-80 bg-slate-950/98 backdrop-blur-3xl border-l border-cyan-500/30 p-8 z-[100] animate-in slide-in-from-right duration-500">
-            <div className="flex justify-between items-start mb-8">
+            <div className="flex justify-between items-start mb-6">
               <h3 className="text-cyan-400 font-black italic text-xl uppercase leading-tight">Protocolo AI<br/>Resultado</h3>
               <button onClick={() => setShowPanel(false)} className="text-slate-500 hover:text-white"><XCircle size={24}/></button>
             </div>
 
-            <div className="space-y-6">
-              <div className="bg-cyan-500/10 border-l-4 border-cyan-500 p-4 rounded-r-xl">
-                <p className="text-[9px] text-cyan-500 font-black uppercase mb-1">Diagnóstico Final</p>
-                <p className="text-xs font-bold text-white">
-                  {mode === 'ECG' ? 'Anomalía en Segmento ST Detectada' : 
-                   mode === 'RETINA' ? 'Signos de Angiopatía detectados' : 
-                   'Estudio completado con éxito'}
+            <div className="space-y-5">
+              {/* Bloque de Ubicación */}
+              <div className="flex items-center gap-2 text-cyan-700 bg-cyan-950/20 p-2 rounded-lg border border-cyan-900/30">
+                <MapPin size={14} />
+                <span className="text-[9px] font-black uppercase tracking-tighter">{location}</span>
+              </div>
+
+              <div className="bg-cyan-500/10 border-l-4 border-cyan-500 p-4 rounded-r-xl shadow-inner">
+                <p className="text-[9px] text-cyan-500 font-black uppercase mb-1 tracking-widest">Diagnóstico AI</p>
+                <p className="text-xs font-bold text-white italic">
+                  Hallazgo compatible con biomarcadores de {mode}.
                 </p>
               </div>
-              <p className="text-[11px] text-slate-400 italic leading-relaxed">
-                Biomarcadores analizados mediante visión artificial. Se recomienda revisión por un clínico certificado.
-              </p>
-              <button className="w-full py-4 bg-cyan-500 text-black font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl shadow-[0_0_20px_rgba(34,211,238,0.4)]">Descargar Reporte</button>
+
+              <div className="p-4 bg-slate-900/50 rounded-2xl border border-slate-800/50">
+                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-2">Metadatos</p>
+                <div className="flex justify-between text-[10px] text-slate-400">
+                  <span>Fecha: {new Date().toLocaleDateString()}</span>
+                  <span>ID: #CI-772</span>
+                </div>
+              </div>
+
+              <button className="w-full py-4 bg-cyan-500 text-black font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl shadow-[0_0_20px_rgba(34,211,238,0.4)] hover:scale-[1.02] transition-transform">
+                Descargar Reporte
+              </button>
             </div>
           </div>
         )}
@@ -125,8 +137,6 @@ export default function App() {
 
       {/* Menú de Captura y FAB */}
       <div className="fixed bottom-10 w-full flex flex-col items-center px-6 z-[110]">
-        
-        {/* INPUT DE ARCHIVO OCULTO */}
         <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
 
         {showCaptureMenu && (
@@ -135,33 +145,31 @@ export default function App() {
               <div className="w-16 h-16 bg-[#0a1122] border border-cyan-500/30 rounded-2xl flex items-center justify-center text-cyan-400 group-hover:bg-cyan-500 group-hover:text-black transition-all">
                 <Camera size={24} />
               </div>
-              <span className="text-[9px] font-black uppercase tracking-widest text-cyan-700 group-hover:text-cyan-400 transition-colors">Cámara</span>
+              <span className="text-[8px] font-black uppercase tracking-widest">Cámara</span>
             </button>
             <button onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center gap-2 group">
               <div className="w-16 h-16 bg-[#0a1122] border border-cyan-500/30 rounded-2xl flex items-center justify-center text-cyan-400 group-hover:bg-cyan-500 group-hover:text-black transition-all">
                 <Upload size={24} />
               </div>
-              <span className="text-[9px] font-black uppercase tracking-widest text-cyan-700 group-hover:text-cyan-400 transition-colors">Archivo</span>
+              <span className="text-[8px] font-black uppercase tracking-widest">Archivo</span>
             </button>
           </div>
         )}
 
         <div className="bg-[#0a1122]/95 backdrop-blur-3xl border border-white/5 px-12 py-6 rounded-[4rem] flex items-center gap-14 shadow-2xl relative">
-          <button className="text-cyan-400 hover:scale-110 transition-transform"><Heart size={24}/></button>
-          
+          <button className="text-cyan-400"><Heart size={24}/></button>
           <div className="relative -top-14">
             <button 
               onClick={() => setShowCaptureMenu(!showCaptureMenu)}
               disabled={status === 'loading'}
               className={`w-24 h-24 rounded-full flex items-center justify-center transition-all duration-500 border-[10px] border-[#020617] ${
-                status === 'loading' ? 'bg-slate-800' : 'bg-cyan-500 shadow-[0_0_45px_rgba(34,211,238,0.5)] active:scale-95'
+                status === 'loading' ? 'bg-slate-800' : 'bg-cyan-500 shadow-[0_0_45px_rgba(34,211,238,0.6)] active:scale-95'
               }`}
             >
-              {status === 'loading' ? <Loader2 className="animate-spin text-white w-10 h-10" /> : <Settings className={`text-white w-10 h-10 ${showCaptureMenu ? 'rotate-90' : ''} transition-transform`} />}
+              {status === 'loading' ? <Loader2 className="animate-spin text-white w-10 h-10" /> : <Settings className="text-white w-10 h-10" />}
             </button>
           </div>
-
-          <button className="text-slate-600 hover:text-cyan-400 transition-colors"><Search size={24}/></button>
+          <button className="text-slate-600"><Search size={24}/></button>
         </div>
       </div>
     </div>
