@@ -48,12 +48,7 @@ interface ImageData {
 
 const MODALITY_SHORTCUTS = [
   { type: ImageType.ECG, label: 'ECG', icon: HeartPulseIcon },
-  { type: ImageType.POCUS, label: 'POCUS', icon: WaveformIcon },
-  { type: ImageType.HEMATOLOGY, label: 'Hemat.', icon: MicroscopeIcon },
   { type: ImageType.SPIROMETRY, label: 'Espiro', icon: WindIcon },
-  { type: ImageType.OTOSCOPY, label: 'Otosc.', icon: EarIcon },
-  { type: ImageType.OPHTHALMOSCOPY, label: 'Oftalm.', icon: EyeIcon },
-  { type: ImageType.IONOGRAM, label: 'Ionog.', icon: BeakerIcon },
   { type: ImageType.EMG, label: 'EMG', icon: ZapIcon },
   { type: ImageType.RX, label: 'Rayos X', icon: LungIcon },
   { type: ImageType.RETINA, label: 'Retina', icon: EyeIcon },
@@ -62,7 +57,6 @@ const MODALITY_SHORTCUTS = [
   { type: ImageType.EEG, label: 'EEG', icon: BrainIcon },
   { type: ImageType.RMN, label: 'RMN', icon: ActivityIcon },
   { type: ImageType.ECO, label: 'Ecografía', icon: WavesIcon },
-  { type: ImageType.UROGRAPHY, label: 'Urograf.', icon: FlaskConicalIcon },
   { type: ImageType.URINALYSIS, label: 'Orina', icon: BeakerIcon },
   { type: ImageType.TOXICOLOGY, label: 'Tóxico', icon: BeakerIcon },
   { type: ImageType.NUCLEAR_MEDICINE, label: 'Nuclear', icon: TargetIcon },
@@ -218,11 +212,11 @@ const ClinicalApp: React.FC = () => {
   };
 
   if (authLoading || showSplash) {
-    return <SplashScreen />;
+    return <SplashScreen isVisible={true} />;
   }
 
   if (!isAuthenticated) {
-    return <Login />;
+    return <Login onInstallClick={() => {}} isAppInstalled={false} />;
   }
 
   const activeModality = MODALITY_SHORTCUTS.find(m => m.type === selectedType)!;
@@ -496,7 +490,6 @@ const ClinicalApp: React.FC = () => {
               error={error}
               result={analysisResult}
               previewUrl={imageData?.previewUrl}
-              healthData={healthData}
             />
 
             <motion.button
@@ -512,6 +505,8 @@ const ClinicalApp: React.FC = () => {
             </motion.button>
           </motion.div>
         </section>
+      </motion.div>
+
       {/* MAIN NAVIGATION HUB */}
       <nav className="fixed bottom-0 left-0 right-0 z-[60] pb-safe-bottom px-4 mb-4">
         <div className="max-w-md mx-auto relative group">
@@ -672,6 +667,7 @@ const ClinicalApp: React.FC = () => {
   );
 };
 
+
 const App: React.FC = () => (
   <AuthProvider>
     <ClinicalApp />
@@ -679,3 +675,4 @@ const App: React.FC = () => (
 );
 
 export default App;
+
