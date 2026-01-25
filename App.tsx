@@ -1,146 +1,172 @@
-import React, { useState, useRef } from 'react';
-import { 
-  Activity, Settings, AlertCircle, CheckCircle2, Loader2, Eye, Clock, Heart, 
-  XCircle, Zap, Camera, Upload, Mic, Brain, Radio, Target, Search
-} from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-type DiagnosticMode = 'ECG' | 'RX' | 'DERMO' | 'FONENDO' | 'EEG' | 'TC' | 'RMN' | 'RETINA' | 'OTO';
-
-export default function App() {
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [mode, setMode] = useState<DiagnosticMode>('ECG');
-  const [showPanel, setShowPanel] = useState(false);
-  const [showCaptureMenu, setShowCaptureMenu] = useState(false);
+export default function ProtocoloAI() {
+  const [isFonendo, setIsFonendo] = useState(false);
+  const [imageData, setImageData] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [analysis, setAnalysis] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationIdRef = useRef<number>();
 
-  const handleAction = async () => {
-    setStatus('loading');
-    setShowPanel(false);
-    setShowCaptureMenu(false);
+  // --- LÓGICA DEL FONENDO (MICROFÓNO REAL) ---
+  const startAudioVisualizer = async () => {
     try {
-      await new Promise(res => setTimeout(res, 4000)); 
-      setStatus('success');
-      setShowPanel(true);
-    } catch {
-      setStatus('error');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      source.connect(analyserRef.current);
+      analyserRef.current.fftSize = 256;
+      drawVisualizer();
+    } catch (err) {
+      console.error("Acceso al micrófono denegado", err);
+      setError("No se pudo acceder al micrófono para el Fonendo.");
+    }
+  };
+
+  const drawVisualizer = () => {
+    if (!canvasRef.current || !analyserRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d')!;
+    const bufferLength = analyserRef.current.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const draw = () => {
+      animationIdRef.current = requestAnimationFrame(draw);
+      analyserRef.current!.getByteFrequencyData(dataArray);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      const barWidth = (canvas.width / bufferLength) * 2.5;
+      let x = 0;
+
+      for (let i = 0; i < bufferLength; i++) {
+        const barHeight = (dataArray[i] / 255) * canvas.height;
+        ctx.fillStyle = `rgb(244, 63, 94)`; // Rosa Fonendo
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "#f43f5e";
+        ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+        x += barWidth + 1;
+      }
+    };
+    draw();
+  };
+
+  const stopAudio = () => {
+    if (animationIdRef.current) cancelAnimationFrame(animationIdRef.current);
+    if (audioContextRef.current) audioContextRef.current.close();
+  };
+
+  useEffect(() => {
+    if (isFonendo) startAudioVisualizer();
+    else stopAudio();
+    return () => stopAudio();
+  }, [isFonendo]);
+
+  // --- NAVEGACIÓN Y CAPTURA ---
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setImageData(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const ejecutarAnalisis = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('https://copy-of-clinical-intelligence-image-analyzer-651390744915.us-west1.run.app/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: isFonendo ? "audio_stream" : imageData }),
+      });
+      const res = await response.json();
+      setAnalysis(res.summary || "Análisis completado satisfactoriamente.");
+      containerRef.current?.scrollTo({ top: window.innerHeight * 2, behavior: 'smooth' });
+    } catch (err) {
+      setError("Error de red: El servidor clínico no responde.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white flex flex-col items-center overflow-hidden font-sans">
-      <style>{`
-        .hologram-view { background: radial-gradient(circle, rgba(6,182,212,0.1) 0%, rgba(2,6,23,1) 100%); position: relative; }
-        .retina-lens { width: 280px; height: 280px; border-radius: 50%; border: 2px solid rgba(34,211,238,0.3); box-shadow: 0 0 40px rgba(6,182,212,0.2), inset 0 0 60px rgba(0,0,0,0.8); position: relative; overflow: hidden; }
-        .retina-scanner { position: absolute; width: 100%; height: 2px; background: #22d3ee; top: 0; box-shadow: 0 0 15px #22d3ee; animation: scanVertical 3s linear infinite; }
-        @keyframes scanVertical { 0% { top: 0%; opacity: 0; } 50% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-      `}</style>
-
-      {/* Selector de Especialidades mejorado */}
-      <div className="w-full flex gap-3 overflow-x-auto p-6 no-scrollbar">
-        {[
-          {id: 'RETINA', label: 'Retina', icon: <Target size={14}/>},
-          {id: 'ECG', label: 'ECG', icon: <Activity size={14}/>},
-          {id: 'RX', label: 'Rayos X', icon: <Radio size={14}/>},
-          {id: 'FONENDO', label: 'Fonendo', icon: <Mic size={14}/>},
-          {id: 'EEG', label: 'EEG', icon: <Brain size={14}/>},
-          {id: 'OTO', label: 'Otoscopia', icon: <Search size={14}/>}
-        ].map((item) => (
-          <button 
-            key={item.id}
-            onClick={() => setMode(item.id as DiagnosticMode)}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full border transition-all ${
-              mode === item.id ? 'border-cyan-400 bg-cyan-400/10 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-slate-800 text-slate-500 hover:border-slate-700'
-            }`}
-          >
-            {item.icon} <span className="text-[10px] font-black uppercase tracking-widest">{item.label}</span>
-          </button>
-        ))}
+    <div className="h-screen w-full bg-[#020617] text-white flex flex-col overflow-hidden">
+      
+      {/* Botones de Cabecera */}
+      <div className="fixed top-6 inset-x-0 z-50 flex justify-center gap-4">
+        <button onClick={() => setIsFonendo(false)} className={`px-6 py-2 rounded-xl border text-[10px] font-bold tracking-widest transition-all ${!isFonendo ? 'border-cyan-400 bg-cyan-400/10 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.3)]' : 'border-white/10 text-white/40'}`}>VISIÓN</button>
+        <button onClick={() => setIsFonendo(true)} className={`px-6 py-2 rounded-xl border text-[10px] font-bold tracking-widest transition-all ${isFonendo ? 'border-rose-500 bg-rose-500/10 text-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]' : 'border-white/10 text-white/40'}`}>FONENDO</button>
       </div>
 
-      {/* Visor Inteligente */}
-      <div className="relative w-[92%] h-[420px] bg-[#070b14] rounded-[3rem] border border-slate-800 shadow-2xl overflow-hidden flex items-center justify-center hologram-view">
-        {status === 'loading' && <div className="retina-scanner z-50" />}
+      <div ref={containerRef} className="flex-1 overflow-y-auto snap-y snap-mandatory scroll-smooth">
         
-        {mode === 'RETINA' ? (
-          <div className="flex flex-col items-center">
-            <div className="retina-lens flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1576086213369-97a306d36557?q=80&w=500')] bg-cover bg-center opacity-60">
-              <div className="absolute inset-0 border-[20px] border-black/40 rounded-full" />
-              {/* Retículo de puntería */}
-              <div className="absolute w-full h-[1px] bg-cyan-500/30" />
-              <div className="absolute h-full w-[1px] bg-cyan-500/30" />
-            </div>
-            <p className="mt-4 text-[10px] text-cyan-500 font-bold tracking-[0.3em] uppercase">Escaneo de Fondo de Ojo</p>
-          </div>
-        ) : mode === 'FONENDO' ? (
-          <div className="flex flex-col items-center">
-            <div className="flex items-end gap-1 h-20 mb-4">
-              {[...Array(20)].map((_, i) => (
-                <div key={i} className="w-1.5 bg-cyan-500 rounded-full" style={{height: `${Math.random() * 100}%`}} />
-              ))}
-            </div>
-            <p className="text-5xl font-black text-cyan-400 italic">75 <span className="text-sm">BPM</span></p>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center opacity-20">
-            <Activity size={60} />
-            <p className="text-[10px] mt-4 uppercase tracking-widest">Protocolo {mode} Activo</p>
-          </div>
-        )}
+        {/* Pantalla de Inicio */}
+        <section className="h-full w-full flex flex-col items-center justify-center snap-start">
+          <h1 className="text-4xl font-black italic uppercase tracking-tighter">Protocolo<span className="text-cyan-400">AI</span></h1>
+          <p className="text-[10px] tracking-[0.5em] text-white/20 mt-2 uppercase">Inteligencia Clínica</p>
+          <div className="mt-20 animate-bounce cursor-pointer text-cyan-400" onClick={() => containerRef.current?.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}>↓</div>
+        </section>
 
-        {/* Diagnóstico IA */}
-        {showPanel && (
-          <div className="absolute right-0 top-0 h-full w-72 bg-slate-950/95 backdrop-blur-2xl border-l border-cyan-500/20 p-8 animate-in slide-in-from-right duration-500 shadow-2xl z-50">
-            <h3 className="text-cyan-400 font-black italic text-xl uppercase mb-6 leading-tight">Informe<br/>Analítico</h3>
-            <div className="space-y-6">
-              <div className="bg-cyan-500/5 border-l-4 border-cyan-500 p-4 rounded-r-xl">
-                <p className="text-[9px] text-cyan-500 font-black uppercase mb-1">Resultado {mode}</p>
-                <p className="text-xs font-bold">{mode === 'RETINA' ? 'Mácula Normal / Signos de HTA' : 'Análisis Completado'}</p>
+        {/* Pantalla de Captura */}
+        <section className="h-full w-full flex flex-col items-center justify-center snap-start p-6">
+          <h2 className="text-2xl font-black italic uppercase text-cyan-400 mb-8">Captura Médica</h2>
+          
+          <div 
+            onClick={() => !isFonendo && fileInputRef.current?.click()}
+            className={`relative w-full max-w-sm aspect-[4/5] rounded-[3rem] border-2 border-dashed flex flex-col items-center justify-center transition-all duration-500 ${isFonendo ? 'border-rose-500 bg-rose-950/20' : 'border-white/10 bg-white/5'}`}
+          >
+            {isFonendo ? (
+              <canvas ref={canvasRef} className="w-full h-32" />
+            ) : imageData ? (
+              <img src={imageData} className="w-full h-full object-cover rounded-[3rem]" alt="Captura" />
+            ) : (
+              <div className="text-center opacity-30">
+                <p className="text-4xl mb-4">📸</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest">Toque para escanear</p>
               </div>
-              <p className="text-[11px] text-slate-400 leading-relaxed italic">La IA de Protocolo ha procesado los biomarcadores. Datos enviados a la nube clínica.</p>
-              <button onClick={() => setShowPanel(false)} className="w-full py-3 bg-slate-900 border border-slate-800 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-white transition-colors">Cerrar</button>
-            </div>
+            )}
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
           </div>
-        )}
+
+          <button 
+            onClick={ejecutarAnalisis}
+            className="mt-8 w-full max-w-sm py-5 rounded-2xl bg-[#00c2cb] text-black font-black uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-transform"
+          >
+            {loading ? 'Analizando...' : 'Ejecutar Análisis'}
+          </button>
+        </section>
+
+        {/* Pantalla de Resultados */}
+        <section className="h-full w-full flex flex-col items-center justify-center snap-start p-6">
+          {error ? (
+            <div className="bg-rose-500/20 border border-rose-500 p-8 rounded-[2.5rem] text-center">
+              <p className="text-rose-400 font-bold uppercase">⚠️ Error de Conexión</p>
+              <button onClick={() => containerRef.current?.scrollTo({ top: window.innerHeight, behavior: 'smooth' })} className="mt-4 bg-rose-500 px-6 py-2 rounded-xl text-[10px] font-bold">CERRAR</button>
+            </div>
+          ) : analysis && (
+            <div className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem] max-w-md">
+              <p className="text-cyan-400 font-bold text-[10px] uppercase mb-4 tracking-widest">Informe de Diagnóstico</p>
+              <p className="text-white/80 italic leading-relaxed">{analysis}</p>
+            </div>
+          )}
+        </section>
       </div>
 
-      {/* FAB Dinámico y Menú de Captura */}
-      <div className="fixed bottom-10 w-full flex flex-col items-center px-6">
-        {showCaptureMenu && (
-          <div className="mb-6 flex gap-6 animate-in fade-in zoom-in-75 duration-300">
-            <button onClick={handleAction} className="group flex flex-col items-center gap-3">
-              <div className="w-14 h-14 bg-slate-900 border border-cyan-500/30 rounded-2xl flex items-center justify-center group-hover:bg-cyan-500 transition-all">
-                <Camera size={20} className="group-hover:text-black" />
-              </div>
-              <span className="text-[8px] font-black uppercase tracking-widest">Cámara</span>
-            </button>
-            <button onClick={handleAction} className="group flex flex-col items-center gap-3">
-              <div className="w-14 h-14 bg-slate-900 border border-cyan-500/30 rounded-2xl flex items-center justify-center group-hover:bg-cyan-500 transition-all">
-                <Upload size={20} className="group-hover:text-black" />
-              </div>
-              <span className="text-[8px] font-black uppercase tracking-widest">Archivo</span>
-            </button>
-          </div>
-        )}
-
-        <div className="bg-[#0a1122]/90 backdrop-blur-3xl border border-slate-800 px-12 py-6 rounded-[4rem] flex items-center gap-12 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-          <button className="text-cyan-400"><Heart size={22}/></button>
-          <div className="w-[2px] h-6 bg-slate-800" />
-          
-          <div className="relative -top-14">
-            <button 
-              onClick={() => setShowCaptureMenu(!showCaptureMenu)}
-              disabled={status === 'loading'}
-              className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-500 border-[8px] border-[#020617] ${
-                status === 'loading' ? 'bg-slate-800' : 'bg-cyan-500 shadow-[0_0_35px_rgba(34,211,238,0.5)] active:scale-90'
-              }`}
-            >
-              {status === 'loading' ? <Loader2 className="animate-spin text-white w-8 h-8"/> : <Settings className="text-white w-8 h-8"/>}
-            </button>
-          </div>
-
-          <div className="w-[2px] h-6 bg-slate-800" />
-          <button className="text-slate-600"><Search size={22}/></button>
+      {/* Dock Inferior */}
+      <div className="fixed bottom-6 inset-x-4 flex justify-center">
+        <div className="bg-[#0f172a]/90 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-4 w-full max-w-md flex justify-around items-center">
+          <span className="opacity-40">🏠</span>
+          <div className="w-14 h-14 bg-cyan-500 rounded-full flex items-center justify-center shadow-lg shadow-cyan-500/50">✨</div>
+          <span className="opacity-40">📊</span>
         </div>
       </div>
     </div>
