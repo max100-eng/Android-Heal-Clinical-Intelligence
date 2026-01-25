@@ -1,156 +1,178 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Configuración de patologías detectadas por el motor de Deep Learning
-const CLINICAL_MODELS = [
-  { id: 'normal', label: 'S1 / S2', info: 'Ritmo Normal', color: '#22d3ee' },
-  { id: 'murmur', label: 'Soplo', info: 'Valvulopatía', color: '#f43f5e' },
-  { id: 'crackle', label: 'Estertores', info: 'Neumonía/Edema', color: '#fbbf24' }
-];
+// --- CONFIGURACIÓN DE MODALIDADES ---
+const MODALITIES = {
+  visual: [
+    { id: 'ecg', label: 'ECG', icon: '❤️', color: '#22d3ee' },
+    { id: 'rx', label: 'RAYOS X', icon: '🦴', color: '#22d3ee' },
+    { id: 'dermo', label: 'DERMO', icon: '🔍', color: '#22d3ee' },
+    { id: 'retina', label: 'RETINA', icon: '👁️', color: '#22d3ee' }
+  ],
+  acoustic: [
+    { id: 'cardiac', label: 'CARDÍACO', icon: '🫀', color: '#f43f5e', filter: 500 },
+    { id: 'pulmonar', label: 'PULMONAR', icon: '🫁', color: '#f43f5e', filter: 1200 }
+  ]
+};
 
 export default function ProtocoloAI() {
-  const [mode, setMode] = useState<'visual' | 'acoustic'>('visual');
-  const [isRecording, setIsRecording] = useState(false);
-  const [analysis, setAnalysis] = useState<string | null>(null);
-  
+  const [mainMode, setMainMode] = useState<'visual' | 'acoustic'>('visual');
+  const [subMode, setSubMode] = useState('ecg');
+  const [isScanning, setIsScanning] = useState(false);
+  const [flashlight, setFlashlight] = useState(false);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioCtx = useRef<AudioContext | null>(null);
-  const analyser = useRef<AnalyserNode | null>(null);
-  const animationFrame = useRef<number>();
+  const streamRef = useRef<MediaStream | null>(null);
 
-  // --- LÓGICA DE FONENDO PROFESIONAL ---
-  const initAudio = async () => {
+  // --- LÓGICA DE LINTERNA (FLASH) PARA RETINA/DERMO ---
+  const toggleFlashlight = async (state: boolean) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioCtx.current = new AudioContext();
-      analyser.current = audioCtx.current.createAnalyser();
-      const source = audioCtx.current.createMediaStreamSource(stream);
-      
-      // Filtro de alta fidelidad para aislar latidos/pulmones (20Hz - 500Hz)
-      const filter = audioCtx.current.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = 500;
-
-      // Amplificación de grado médico (Simulación de 100x)
-      const gain = audioCtx.current.createGain();
-      gain.gain.value = 15.0; 
-
-      source.connect(filter).connect(gain).connect(analyser.current);
-      drawWave();
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      const track = stream.getVideoTracks()[0];
+      const capabilities = track.getCapabilities() as any;
+      if (capabilities.torch) {
+        await track.applyConstraints({ advanced: [{ torch: state }] } as any);
+        setFlashlight(state);
+      }
     } catch (err) {
-      console.error("Micrófono no disponible", err);
+      console.error("Flash no disponible", err);
     }
   };
 
-  const drawWave = () => {
-    if (!canvasRef.current || !analyser.current) return;
-    const ctx = canvasRef.current.getContext('2d')!;
-    const bufferLength = analyser.current.frequencyBinCount;
+  // --- MOTOR DE AUDIO Y ESCANEO ---
+  const startEngine = async () => {
+    if (isScanning) {
+      setIsScanning(false);
+      audioCtx.current?.close();
+      if (flashlight) toggleFlashlight(false);
+      return;
+    }
+
+    setIsScanning(true);
+    
+    // Activar Flash automáticamente en Retina o Dermo
+    if (mainMode === 'visual' && (subMode === 'retina' || subMode === 'dermo')) {
+      toggleFlashlight(true);
+    }
+
+    if (mainMode === 'acoustic') {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioCtx.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const source = audioCtx.current.createMediaStreamSource(stream);
+      
+      // Filtro Profesional
+      const filter = audioCtx.current.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = subMode === 'cardiac' ? 500 : 1200;
+
+      // Amplificación 100x (Gain)
+      const gainNode = audioCtx.current.createGain();
+      gainNode.gain.value = 20.0; // Amplificación masiva para fonendo
+
+      const analyser = audioCtx.current.createAnalyser();
+      source.connect(filter).connect(gainNode).connect(analyser);
+      visualize(analyser);
+    }
+  };
+
+  const visualize = (analyser: AnalyserNode) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d')!;
+    const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
 
-    const animate = () => {
-      analyser.current!.getByteTimeDomainData(dataArray);
-      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const draw = () => {
+      if (!isScanning) return;
+      requestAnimationFrame(draw);
+      analyser.getByteTimeDomainData(dataArray);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.lineWidth = 4;
-      ctx.strokeStyle = mode === 'acoustic' ? '#f43f5e' : '#22d3ee'; // Alternancia de color
-      ctx.shadowBlur = 15;
-      ctx.shadowColor = ctx.strokeStyle as string;
+      ctx.strokeStyle = mainMode === 'visual' ? '#22d3ee' : '#f43f5e';
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = ctx.strokeStyle;
 
       ctx.beginPath();
-      const sliceWidth = ctx.canvas.width / bufferLength;
+      const sliceWidth = canvas.width / bufferLength;
       let x = 0;
       for (let i = 0; i < bufferLength; i++) {
         const v = dataArray[i] / 128.0;
-        const y = (v * ctx.canvas.height) / 2;
+        const y = (v * canvas.height) / 2;
         if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         x += sliceWidth;
       }
+      ctx.lineTo(canvas.width, canvas.height / 2);
       ctx.stroke();
-      animationFrame.current = requestAnimationFrame(animate);
     };
-    animate();
+    draw();
   };
 
-  useEffect(() => {
-    if (isRecording) initAudio();
-    else {
-      if (animationFrame.current) cancelAnimationFrame(animationFrame.current);
-      audioCtx.current?.close();
-    }
-    return () => { if (animationFrame.current) cancelAnimationFrame(animationFrame.current); };
-  }, [isRecording, mode]);
-
   return (
-    <div className="h-screen w-full bg-[#020617] text-white flex flex-col font-sans overflow-hidden">
+    <div className="h-screen w-full bg-[#020617] text-white flex flex-col overflow-hidden font-sans">
       
-      {/* NAVBAR TÁCTICO */}
-      <nav className="p-6 flex justify-center gap-4 bg-slate-900/40 backdrop-blur-md">
-        <button 
-          onClick={() => {setMode('visual'); setIsRecording(false);}}
-          className={`px-8 py-2 rounded-full text-[10px] font-black tracking-widest border transition-all ${mode === 'visual' ? 'border-cyan-400 text-cyan-400 bg-cyan-400/10 shadow-[0_0_15px_rgba(34,211,238,0.4)]' : 'border-white/10 opacity-30'}`}
-        >
-          VISIÓN IA
-        </button>
-        <button 
-          onClick={() => setMode('acoustic')}
-          className={`px-8 py-2 rounded-full text-[10px] font-black tracking-widest border transition-all ${mode === 'acoustic' ? 'border-rose-500 text-rose-500 bg-rose-500/10 shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 'border-white/10 opacity-30'}`}
-        >
-          FONENDO DIGITAL
-        </button>
-      </nav>
-
-      <main className="flex-1 flex flex-col items-center justify-center p-8 space-y-10">
-        <header className="text-center">
-          <h1 className="text-4xl font-black italic uppercase tracking-tighter">
-            Protocolo<span className={mode === 'acoustic' ? 'text-rose-500' : 'text-cyan-400'}>AI</span>
-          </h1>
-          <p className="text-[9px] tracking-[0.5em] text-white/20 uppercase mt-2">Inteligencia de Clase Mundial</p>
-        </header>
-
-        {/* MONITOR GRÁFICO DINÁMICO */}
-        <div className={`relative w-full max-w-md aspect-[16/9] rounded-[2.5rem] border-2 flex items-center justify-center overflow-hidden transition-all duration-700 ${mode === 'acoustic' ? 'border-rose-500/30 bg-rose-950/5' : 'border-cyan-400/30 bg-cyan-950/5'}`}>
-          <canvas ref={canvasRef} className="w-full h-full opacity-80" />
-          
-          <div className="absolute top-6 left-6 flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full animate-pulse ${mode === 'acoustic' ? 'bg-rose-500' : 'bg-cyan-400'}`} />
-            <span className="text-[8px] font-bold tracking-widest uppercase opacity-50">Live {mode} Stream</span>
-          </div>
-
-          {!isRecording && mode === 'acoustic' && (
-            <button onClick={() => setIsRecording(true)} className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm group">
-              <div className="w-20 h-20 rounded-full border-2 border-rose-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <span className="text-rose-500 text-xs font-black">START</span>
-              </div>
-            </button>
-          )}
+      {/* HEADER: SELECTOR DE MODO HOLOGRÁFICO */}
+      <div className="p-8 flex flex-col items-center gap-6 z-20">
+        <div className="flex gap-4 p-1 bg-white/5 rounded-2xl border border-white/10">
+          <button onClick={() => {setMainMode('visual'); setIsScanning(false);}} className={`px-6 py-2 rounded-xl text-[10px] font-black transition-all ${mainMode === 'visual' ? 'bg-cyan-400 text-black shadow-lg shadow-cyan-400/40' : 'text-white/40'}`}>VISIÓN HOLOGRÁFICA</button>
+          <button onClick={() => {setMainMode('acoustic'); setIsScanning(false);}} className={`px-6 py-2 rounded-xl text-[10px] font-black transition-all ${mainMode === 'acoustic' ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/40' : 'text-white/40'}`}>FONENDO INTELIGENTE</button>
         </div>
 
-        {/* PANEL DE DATOS DEEP LEARNING */}
-        <div className="w-full max-w-md grid grid-cols-2 gap-4">
-          <div className="bg-white/5 border border-white/10 p-5 rounded-3xl">
-            <p className="text-[8px] text-white/30 uppercase font-bold mb-1">Detección Actual</p>
-            <p className={`text-sm font-black uppercase ${mode === 'acoustic' ? 'text-rose-400' : 'text-cyan-400'}`}>
-              {mode === 'acoustic' ? 'Análisis de Soplos' : 'Escaneo ECG/Dermo'}
-            </p>
+        {/* SELECTOR DE SUB-MODALIDAD CON ICONOS */}
+        <div className="flex gap-4 overflow-x-auto w-full no-scrollbar px-4">
+          {MODALITIES[mainMode].map((m) => (
+            <button 
+              key={m.id} 
+              onClick={() => {setSubMode(m.id); setIsScanning(false);}}
+              className={`flex flex-col items-center gap-2 min-w-[80px] p-4 rounded-2xl border transition-all ${subMode === m.id ? 'border-white/40 bg-white/10 shadow-xl' : 'border-white/5 bg-transparent opacity-30'}`}
+            >
+              <span className="text-xl">{m.icon}</span>
+              <span className="text-[8px] font-black tracking-tighter">{m.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* MONITOR CENTRAL DE ESCANEO */}
+      <main className="flex-1 flex flex-col items-center justify-center px-6 relative">
+        <div className={`relative w-full max-w-lg aspect-square md:aspect-video rounded-[3rem] border-2 flex items-center justify-center overflow-hidden transition-all duration-1000 ${mainMode === 'visual' ? 'border-cyan-400/30 bg-cyan-950/5' : 'border-rose-500/30 bg-rose-950/5'}`}>
+          
+          {/* REJILLA TÁCTICA */}
+          <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+          
+          <canvas ref={canvasRef} className="w-full h-64 z-10" />
+
+          {/* INDICADOR DE AMPLIFICACIÓN */}
+          <div className="absolute top-10 right-10 text-right">
+            <p className="text-[10px] font-black opacity-30 tracking-[0.3em]">GAIN 100X</p>
+            <div className={`h-1 w-12 ml-auto mt-1 ${isScanning ? 'bg-green-500 animate-pulse' : 'bg-white/10'}`} />
           </div>
-          <div className="bg-white/5 border border-white/10 p-5 rounded-3xl">
-            <p className="text-[8px] text-white/30 uppercase font-bold mb-1">Fiabilidad IA</p>
-            <p className="text-sm font-black text-white/90">99.8% Accuracy</p>
-          </div>
+
+          {!isScanning && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 backdrop-blur-[2px]">
+              <p className="text-[10px] font-black tracking-[0.5em] opacity-40 mb-4 uppercase">Listo para Escaneo</p>
+              <button onClick={startEngine} className={`w-20 h-20 rounded-full flex items-center justify-center border-2 transition-all hover:scale-110 ${mainMode === 'visual' ? 'border-cyan-400 text-cyan-400' : 'border-rose-500 text-rose-500'}`}>
+                <span className="text-2xl">▶</span>
+              </button>
+            </div>
+          )}
         </div>
       </main>
 
-      {/* DOCK INFERIOR ESTILO TÁCTICO */}
-      <footer className="p-8 flex justify-center">
-        <div className="bg-slate-900/80 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] px-10 py-4 flex items-center gap-12 shadow-2xl relative">
-          <span className="opacity-20 text-xl cursor-pointer hover:opacity-100">🏠</span>
-          <button 
-             onClick={() => setAnalysis("Analizando patrones clínicos...")}
-             className={`w-16 h-16 rounded-full flex items-center justify-center shadow-2xl transition-all active:scale-90 ${mode === 'acoustic' ? 'bg-rose-500 shadow-rose-500/40' : 'bg-cyan-500 shadow-cyan-500/40'}`}
-          >
-            <span className="text-2xl">🧬</span>
-          </button>
-          <span className="opacity-20 text-xl cursor-pointer hover:opacity-100">📊</span>
+      {/* DOCK DE RESULTADOS */}
+      <footer className="p-10">
+        <div className="bg-[#0f172a]/90 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] p-6 shadow-2xl">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${isScanning ? 'bg-green-500 animate-ping' : 'bg-white/20'}`} />
+              <span className="text-[10px] font-black tracking-widest opacity-60 uppercase">Análisis en curso</span>
+            </div>
+            <span className="text-[10px] font-mono opacity-40">ID: CLINICAL-AI-99X</span>
+          </div>
+          <p className="text-sm font-medium italic text-white/80 leading-relaxed">
+            {isScanning ? `Procesando señal ${subMode.toUpperCase()} con algoritmo de Deep Learning...` : "Seleccione modalidad y presione el iniciador holográfico para comenzar el diagnóstico."}
+          </p>
         </div>
       </footer>
     </div>
