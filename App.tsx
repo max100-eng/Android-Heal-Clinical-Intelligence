@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { 
   Activity, Settings, AlertCircle, CheckCircle2, Loader2, Eye, Clock, Heart, 
-  XCircle, Zap, Camera, Upload, Mic, Brain, Radio, Target, Search, FileText, MapPin
+  XCircle, Zap, Camera, Upload, Mic, Brain, Radio, Target, Search, FileText, MapPin, Share2
 } from 'lucide-react';
 
 type DiagnosticMode = 'RETINA' | 'ECG' | 'RX' | 'FONENDO' | 'EEG' | 'OTO';
@@ -16,7 +16,6 @@ export default function App() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Función para obtener ubicación real
   const fetchLocation = () => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition((position) => {
@@ -32,7 +31,7 @@ export default function App() {
     setShowPanel(false);
     setShowCaptureMenu(false);
     setStatus('loading');
-    fetchLocation(); // Captura ubicación durante el escaneo
+    fetchLocation();
 
     try {
       await new Promise(resolve => setTimeout(resolve, 3500));
@@ -44,6 +43,17 @@ export default function App() {
     } catch (error) {
       setStatus('error');
     }
+  };
+
+  // FUNCIÓN PARA COMPARTIR POR WHATSAPP
+  const shareToWhatsApp = () => {
+    const message = `*PROTOCOLO AI - REPORTE CLÍNICO*%0A%0A` +
+                    `*Modo:* ${mode}%0A` +
+                    `*Diagnóstico:* Hallazgo detectado%0A` +
+                    `*Ubicación:* ${location}%0A` +
+                    `*Fecha:* ${new Date().toLocaleDateString()}%0A%0A` +
+                    `_Enviado desde el terminal de inteligencia clínica._`;
+    window.open(`https://wa.me/?text=${message}`, '_blank');
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,12 +72,12 @@ export default function App() {
     <div className="min-h-screen bg-[#020617] text-white flex flex-col items-center overflow-hidden font-sans">
       <style>{`
         .hologram-view { background: radial-gradient(circle at center, rgba(6,182,212,0.1) 0%, rgba(2,6,23,1) 100%); position: relative; }
-        .scanner-bar { position: absolute; width: 100%; height: 3px; background: #22d3ee; box-shadow: 0 0 20px #22d3ee; z-index: 50; animation: scanMove 2s linear infinite; }
+        .scanner-bar { position: absolute; width: 100%; height: 3px; background: #22d3ee; box-shadow: 0 0 20px #22d3ee; z-index: 50; animation: scanMove 2.5s linear infinite; }
         @keyframes scanMove { 0% { top: 0%; opacity: 0; } 50% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
         .glass-container { backdrop-filter: blur(10px); border: 1px solid rgba(34,211,238,0.1); }
       `}</style>
 
-      {/* Selector de Especialidades */}
+      {/* Selector Superior */}
       <div className="w-full flex gap-4 overflow-x-auto p-6 no-scrollbar z-20">
         {['RETINA', 'ECG', 'RX', 'FONENDO', 'EEG', 'OTO'].map((m) => (
           <button 
@@ -97,7 +107,7 @@ export default function App() {
           )}
         </div>
 
-        {/* Panel de Diagnóstico con GEOLOCALIZACIÓN */}
+        {/* Panel de Diagnóstico con WhatsApp */}
         {showPanel && (
           <div className="absolute inset-y-0 right-0 w-80 bg-slate-950/98 backdrop-blur-3xl border-l border-cyan-500/30 p-8 z-[100] animate-in slide-in-from-right duration-500">
             <div className="flex justify-between items-start mb-6">
@@ -106,30 +116,29 @@ export default function App() {
             </div>
 
             <div className="space-y-5">
-              {/* Bloque de Ubicación */}
               <div className="flex items-center gap-2 text-cyan-700 bg-cyan-950/20 p-2 rounded-lg border border-cyan-900/30">
                 <MapPin size={14} />
                 <span className="text-[9px] font-black uppercase tracking-tighter">{location}</span>
               </div>
 
-              <div className="bg-cyan-500/10 border-l-4 border-cyan-500 p-4 rounded-r-xl shadow-inner">
+              <div className="bg-cyan-500/10 border-l-4 border-cyan-500 p-4 rounded-r-xl">
                 <p className="text-[9px] text-cyan-500 font-black uppercase mb-1 tracking-widest">Diagnóstico AI</p>
-                <p className="text-xs font-bold text-white italic">
-                  Hallazgo compatible con biomarcadores de {mode}.
-                </p>
+                <p className="text-xs font-bold text-white italic">Hallazgo biométrico en {mode}.</p>
               </div>
 
-              <div className="p-4 bg-slate-900/50 rounded-2xl border border-slate-800/50">
-                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-2">Metadatos</p>
-                <div className="flex justify-between text-[10px] text-slate-400">
-                  <span>Fecha: {new Date().toLocaleDateString()}</span>
-                  <span>ID: #CI-772</span>
-                </div>
+              <div className="grid grid-cols-1 gap-3">
+                <button className="w-full py-4 bg-cyan-500 text-black font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl shadow-lg hover:scale-[1.02] transition-transform flex items-center justify-center gap-2">
+                  <FileText size={14} /> PDF
+                </button>
+                
+                {/* BOTÓN WHATSAPP */}
+                <button 
+                  onClick={shareToWhatsApp}
+                  className="w-full py-4 bg-green-600/20 border border-green-500/50 text-green-500 font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-green-600 hover:text-white transition-all flex items-center justify-center gap-2"
+                >
+                  <Share2 size={14} /> WhatsApp
+                </button>
               </div>
-
-              <button className="w-full py-4 bg-cyan-500 text-black font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl shadow-[0_0_20px_rgba(34,211,238,0.4)] hover:scale-[1.02] transition-transform">
-                Descargar Reporte
-              </button>
             </div>
           </div>
         )}
@@ -145,13 +154,13 @@ export default function App() {
               <div className="w-16 h-16 bg-[#0a1122] border border-cyan-500/30 rounded-2xl flex items-center justify-center text-cyan-400 group-hover:bg-cyan-500 group-hover:text-black transition-all">
                 <Camera size={24} />
               </div>
-              <span className="text-[8px] font-black uppercase tracking-widest">Cámara</span>
+              <span className="text-[9px] font-black uppercase tracking-widest text-cyan-700">Cámara</span>
             </button>
             <button onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center gap-2 group">
               <div className="w-16 h-16 bg-[#0a1122] border border-cyan-500/30 rounded-2xl flex items-center justify-center text-cyan-400 group-hover:bg-cyan-500 group-hover:text-black transition-all">
                 <Upload size={24} />
               </div>
-              <span className="text-[8px] font-black uppercase tracking-widest">Archivo</span>
+              <span className="text-[9px] font-black uppercase tracking-widest text-cyan-700">Archivo</span>
             </button>
           </div>
         )}
