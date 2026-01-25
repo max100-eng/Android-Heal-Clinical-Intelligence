@@ -1,127 +1,157 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const MODALITIES = [
+  { id: 'ecg', label: 'ECG', icon: '❤️', desc: 'Análisis de Arritmias' },
+  { id: 'rx', label: 'RAYOS X', icon: '🦴', desc: 'Detección Ósea/Pulmonar' },
+  { id: 'dermo', label: 'DERMATO', icon: '🔍', desc: 'Lesiones Cutáneas' },
+  { id: 'retina', label: 'RETINA', icon: '👁️', desc: 'Retinopatía/Glaucoma' }
+];
+
 export default function ProtocoloAI() {
-  const [mode, setMode] = useState<'visual' | 'acoustic'>('visual');
+  const [selectedMod, setSelectedMod] = useState(MODALITIES[0]);
   const [source, setSource] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [inferenceProgress, setInferenceProgress] = useState(0);
-  const [inferenceStage, setInferenceStage] = useState('');
+  const [isInference, setIsInference] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [logs, setLogs] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- LÓGICA DE SIMULACIÓN DE INFERENCIA DE IA ---
-  const runInference = () => {
+  // --- LÓGICA DE CARGA SEGURA ---
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadstart = () => setLogs(["Cargando binarios..."]);
+    reader.onload = (ev) => {
+      setSource(ev.target?.result as string);
+      setLogs(prev => [...prev, "Imagen cargada con éxito", "Esperando ejecución..."]);
+    };
+    reader.onerror = () => setLogs(["ERROR: Fallo en lectura de archivo"]);
+    reader.readAsDataURL(file);
+  };
+
+  // --- SIMULACIÓN DE INFERENCIA HOLOGRÁFICA ---
+  const startInference = () => {
     if (!source) return;
-    setIsProcessing(true);
-    setInferenceProgress(0);
+    setIsInference(true);
+    setProgress(0);
     
-    const stages = [
-      { p: 10, t: 'Inicializando red neuronal...' },
-      { p: 30, t: 'Extrayendo biomarcadores...' },
-      { p: 60, t: 'Comparando con base de datos global...' },
-      { p: 90, t: 'Calculando probabilidad diagnóstica...' },
-      { p: 100, t: 'Análisis Completo' }
+    const steps = [
+      "Normalizando matriz de píxeles...",
+      `Aplicando modelo DeepCore-${selectedMod.id}...`,
+      "Identificando patrones patológicos...",
+      "Calculando score de confianza...",
+      "Análisis finalizado."
     ];
 
-    stages.forEach((stage, index) => {
+    steps.forEach((step, i) => {
       setTimeout(() => {
-        setInferenceProgress(stage.p);
-        setInferenceStage(stage.t);
-        if (stage.p === 100) {
-          setTimeout(() => {
-            alert("Diagnóstico Generado con éxito.");
-            setIsProcessing(false);
-          }, 500);
+        setLogs(prev => [step, ...prev.slice(0, 3)]);
+        setProgress((i + 1) * 20);
+        if (i === steps.length - 1) {
+          setTimeout(() => setIsInference(false), 2000);
         }
-      }, index * 1200); // Velocidad de la barra
+      }, i * 1500);
     });
   };
 
   return (
-    <div className="h-screen w-full bg-[#020617] text-white flex flex-col font-sans overflow-hidden">
+    <div className="h-screen w-full bg-[#020617] text-white flex flex-col overflow-hidden font-mono">
       
-      {/* HEADER SELECTOR */}
-      <header className="p-6 flex justify-center gap-4 bg-slate-900/40 backdrop-blur-xl border-b border-white/5">
-        <button onClick={() => { setMode('visual'); setSource(null); }} className={`px-6 py-2 rounded-xl text-[10px] font-black border transition-all ${mode === 'visual' ? 'border-cyan-400 bg-cyan-400/10 text-cyan-400' : 'border-transparent opacity-30'}`}>VISIÓN HOLOGRÁFICA</button>
-        <button onClick={() => { setMode('acoustic'); setSource(null); }} className={`px-6 py-2 rounded-xl text-[10px] font-black border transition-all ${mode === 'acoustic' ? 'border-rose-500 bg-rose-500/10 text-rose-500' : 'border-transparent opacity-30'}`}>FONENDO DIGITAL</button>
-      </header>
+      {/* HEADER: SELECTOR DE ESPECIALIDAD */}
+      <div className="p-6 grid grid-cols-4 gap-2 bg-slate-900/50 backdrop-blur-xl border-b border-white/5">
+        {MODALITIES.map((m) => (
+          <button 
+            key={m.id}
+            onClick={() => { setSelectedMod(m); setSource(null); }}
+            className={`flex flex-col items-center p-2 rounded-xl border transition-all ${selectedMod.id === m.id ? 'border-cyan-400 bg-cyan-400/10 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-white/5 opacity-40'}`}
+          >
+            <span className="text-lg">{m.icon}</span>
+            <span className="text-[7px] font-black mt-1 uppercase tracking-tighter">{m.label}</span>
+          </button>
+        ))}
+      </div>
 
-      {/* MONITOR DE ESCANEO */}
-      <main className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
+      {/* MONITOR HOLOGRÁFICO PRINCIPAL */}
+      <main className="flex-1 flex flex-col items-center justify-center p-6 relative">
+        
+        {/* Datos de Inferencia Alrededor (Detalles) */}
+        <div className="absolute top-10 left-10 text-[7px] text-cyan-400/50 space-y-1 hidden md:block">
+          <p>SCAN_MODE: {selectedMod.label}</p>
+          <p>RESOLUTION: 4096px</p>
+          <p>LATENCY: 24ms</p>
+        </div>
+
         <div 
-          onClick={() => !isProcessing && fileInputRef.current?.click()}
-          className={`relative w-full max-w-sm aspect-[3/4] rounded-[3rem] border-2 border-dashed flex items-center justify-center overflow-hidden transition-all duration-700 ${mode === 'visual' ? 'border-cyan-400/30' : 'border-rose-500/30'} ${isProcessing ? 'scale-95 opacity-80' : ''}`}
+          onClick={() => fileInputRef.current?.click()}
+          className={`relative w-full max-w-sm aspect-[4/5] rounded-[2rem] border-2 border-dashed flex items-center justify-center overflow-hidden transition-all duration-700 ${isInference ? 'border-cyan-400 shadow-[0_0_50px_rgba(34,211,238,0.1)]' : 'border-white/10'}`}
         >
-          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" capture="environment" onChange={(e) => {
-             const file = e.target.files?.[0];
-             if (file) {
-               const reader = new FileReader();
-               reader.onload = (ev) => setSource(ev.target?.result as string);
-               reader.readAsDataURL(file);
-             }
-          }} />
+          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
 
           {source ? (
             <div className="relative w-full h-full">
-              <img src={source} className="w-full h-full object-cover opacity-40" />
-              {/* Línea de escaneo láser solo si no está procesando inferencia final */}
-              {!isProcessing && (
-                <motion.div 
-                  animate={{ top: ['0%', '100%', '0%'] }} 
-                  transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-                  className={`absolute left-0 w-full h-[2px] z-20 shadow-[0_0_15px] ${mode === 'visual' ? 'bg-cyan-400 shadow-cyan-400' : 'bg-rose-500 shadow-rose-500'}`} 
-                />
-              )}
+              <img src={source} className={`w-full h-full object-cover transition-all ${isInference ? 'brightness-50' : 'brightness-100'}`} />
+              
+              {/* ESCÁNER LÁSER HOLOGRÁFICO */}
+              <motion.div 
+                animate={{ top: ['0%', '100%', '0%'] }} 
+                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                className="absolute left-0 w-full h-[2px] bg-cyan-400 shadow-[0_0_20px_#22d3ee] z-30" 
+              />
+
+              {/* Detalles perimetrales en el escaner */}
+              <div className="absolute inset-0 border-[20px] border-black/20 pointer-events-none" />
+              <div className="absolute bottom-4 left-4 right-4 flex justify-between text-[6px] text-cyan-400 font-bold opacity-70">
+                <span>COORD_X: {Math.random().toFixed(4)}</span>
+                <span>DATA_STREAM_ACTIVE</span>
+              </div>
             </div>
           ) : (
             <div className="text-center p-10 opacity-30">
-              <span className="text-5xl">{mode === 'visual' ? '📸' : '🎙️'}</span>
-              <p className="text-[10px] font-black tracking-widest mt-4 uppercase">Capturar Muestra</p>
+              <p className="text-[10px] font-black tracking-[0.4em] uppercase">Esperando {selectedMod.label}</p>
+              <p className="text-[8px] mt-2 italic">Toque para cargar imagen médica</p>
             </div>
           )}
         </div>
 
-        {/* --- BARRA DE PROGRESO DE INFERENCIA (HOLOGRÁFICA) --- */}
-        <AnimatePresence>
-          {isProcessing && (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="w-full max-w-sm space-y-3 px-4"
-            >
-              <div className="flex justify-between items-end">
-                <span className="text-[9px] font-black text-cyan-400 uppercase tracking-widest animate-pulse">{inferenceStage}</span>
-                <span className="text-[12px] font-mono text-white/50">{inferenceProgress}%</span>
-              </div>
-              <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/10">
-                <motion.div 
-                  className={`h-full ${mode === 'visual' ? 'bg-cyan-400' : 'bg-rose-500 shadow-[0_0_10px_#f43f5e]'}`}
-                  initial={{ width: 0 }}
-                  animate={{ width: `${inferenceProgress}%` }}
-                  transition={{ duration: 0.5 }}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* LOGS DE IA EN TIEMPO REAL */}
+        <div className="mt-6 w-full max-w-sm h-16 overflow-hidden">
+          {logs.map((log, i) => (
+            <motion.p initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} key={i} className="text-[8px] text-cyan-500/80 leading-tight tracking-wider uppercase font-bold">
+              {`> ${log}`}
+            </motion.p>
+          ))}
+        </div>
       </main>
 
-      {/* FOOTER TÁCTICO */}
-      <footer className="p-8">
-        <div className="bg-slate-900/80 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-6 flex items-center justify-between shadow-2xl">
-          <div className="flex flex-col">
-            <span className="text-[7px] font-black text-white/30 uppercase tracking-[0.3em] mb-1">IA Inference Core</span>
-            <span className="text-[10px] font-bold text-white/80">V.9.9 Neural Engine</span>
+      {/* FOOTER CON BARRA DE PROGRESO */}
+      <footer className="p-8 bg-slate-900/80 backdrop-blur-2xl">
+        <div className="space-y-4">
+          {isInference && (
+            <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden border border-white/5">
+              <motion.div 
+                className="h-full bg-cyan-400"
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+              />
+            </div>
+          )}
+          
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-[8px] text-white/20 uppercase font-black tracking-widest">ProtocoloAI Neural Core</span>
+              <span className="text-[10px] text-cyan-400 font-bold uppercase">{selectedMod.desc}</span>
+            </div>
+            <button 
+              onClick={startInference}
+              disabled={!source || isInference}
+              className={`px-10 py-4 rounded-xl text-[10px] font-black tracking-widest transition-all ${source && !isInference ? 'bg-cyan-500 text-black shadow-lg' : 'bg-white/5 text-white/10 cursor-not-allowed'}`}
+            >
+              {isInference ? 'ANALIZANDO...' : 'INICIAR INFERENCIA'}
+            </button>
           </div>
-          <button 
-            onClick={runInference}
-            disabled={!source || isProcessing}
-            className={`px-10 py-4 rounded-2xl text-[10px] font-black tracking-widest transition-all ${source && !isProcessing ? 'bg-white text-black shadow-white/20 shadow-xl scale-100' : 'bg-white/5 text-white/10 scale-95 cursor-not-allowed'}`}
-          >
-            {isProcessing ? 'PROCESANDO...' : 'EJECUTAR IA'}
-          </button>
         </div>
       </footer>
     </div>
